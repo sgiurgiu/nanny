@@ -1,0 +1,4 @@
+[Project]
+Name=nanny
+Manager=KDevCMakeManager
+VersionControl=kdevgit
