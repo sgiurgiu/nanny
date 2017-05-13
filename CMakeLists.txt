@@ -3,15 +3,23 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build (Debug or Release)" FORCE)
 endif()
 set(CMAKE_C_STANDARD 11)
-
 project(nanny)
 
 add_definitions(-Wall -pedantic -Wextra -DMG_ENABLE_HTTP_WEBSOCKET=0 -DMG_ENABLE_MQTT=0)
+find_package(PkgConfig REQUIRED)
+pkg_search_module(JSON_C REQUIRED json-c)
+find_path(PFVAR_INCLUDE_DIR net/pfvar.h
+    /usr/local/include
+    /usr/include
+)
 
+message(STATUS "Net/pfvar.h detected ${PFVAR_INCLUDE_DIR}")
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_definitions(-DNANNY_DEBUG)
 endif(CMAKE_BUILD_TYPE MATCHES Debug)
+
+include_directories(${JSON_C_INCLUDE_DIRS})
 
 set(NANNY_SRC src/main.c
               src/http_server.c
@@ -19,14 +27,16 @@ set(NANNY_SRC src/main.c
               src/mongoose.c
               src/sqlite3.c
    )
-if(CMAKE_SYSTEM_NAME MATCHES OpenBSD)
-    list(APPEND NANNY_SRC src/pf_openbsd.c)
-else(CMAKE_SYSTEM_NAME MATCHES OpenBSD)
+if(PFVAR_INCLUDE_DIR MATCHES PFVAR_INCLUDE_DIR-NOTFOUND)
     list(APPEND NANNY_SRC src/pf_mock.c)
-endif(CMAKE_SYSTEM_NAME MATCHES OpenBSD)
+else(PFVAR_INCLUDE_DIR MATCHES PFVAR_INCLUDE_DIR-NOTFOUND)
+   list(APPEND NANNY_SRC src/pf_real.c)
+endif(PFVAR_INCLUDE_DIR MATCHES PFVAR_INCLUDE_DIR-NOTFOUND)
 
 set(EXECUTABLE_NAME "nanny")
 
 add_executable(${EXECUTABLE_NAME} ${NANNY_SRC})
 target_link_libraries(${EXECUTABLE_NAME} pthread dl)
+target_link_libraries(${EXECUTABLE_NAME} ${JSON_C_LIBRARIES})
+
 install(TARGETS ${EXECUTABLE_NAME} RUNTIME DESTINATION bin)

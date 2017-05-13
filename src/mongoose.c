@@ -10188,8 +10188,10 @@ int mg_dns_parse_record_data(struct mg_dns_message *msg,
       return 0;
 #endif
     case MG_DNS_CNAME_RECORD:
+    case MG_DNS_PTR_RECORD:
       mg_dns_uncompress_name(msg, &rr->rdata, (char *) data, data_len);
       return 0;
+      
   }
 
   return -1;

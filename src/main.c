@@ -25,7 +25,18 @@ static int check_configuration() {
         return 1;
     }
     free(pf_table_name);
-    
+    char* local_nameserver = get_configuration_value("LOCAL_NAMESERVER");
+    if(!local_nameserver) {
+        fprintf(stderr, "LOCAL_NAMESERVER option is not defined\n");
+        return 1;
+    }
+    free(local_nameserver);
+    char* local_domain = get_configuration_value("LOCAL_DOMAIN");
+    if(!local_domain) {
+        fprintf(stderr, "LOCAL_DOMAIN option is not defined\n");
+        return 1;
+    }
+    free(local_domain);
     
     return 0;
 }
