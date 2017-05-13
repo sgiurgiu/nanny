@@ -5,7 +5,7 @@ endif()
 #set(CMAKE_C_STANDARD 11)
 project(nanny)
 
-add_definitions(-std=c11 -Wall -pedantic -Wextra -DMG_ENABLE_HTTP_WEBSOCKET=0 -DMG_ENABLE_MQTT=0)
+add_definitions(-std=c99 -Wall -pedantic -Wextra -DMG_ENABLE_HTTP_WEBSOCKET=0 -DMG_ENABLE_MQTT=0)
 find_package(PkgConfig REQUIRED)
 pkg_search_module(JSON_C REQUIRED json-c)
 find_path(PFVAR_INCLUDE_DIR net/pfvar.h
