@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+
 #include "mongoose.h"
 #include "http_server.h"
 #include "database.h"
@@ -47,6 +49,7 @@ int main(int argc, char **argv) {
     http_server_options options;
     options.server_root = ".";
     options.address = "127.0.0.1:8000";
+    int daemonize = 0;
     
     for (i = 1; i < argc; i++) {
         if( strncmp(argv[i], "-h", 2) == 0 || 
@@ -59,6 +62,8 @@ int main(int argc, char **argv) {
             options.server_root = argv[++i];
         } else if ((strncmp(argv[i], "-d", 2) == 0 && i + 1 < argc) || (strncmp(argv[i], "--db", 4) == 0 && i + 1 < argc)) {
             db_file = argv[++i];
+        } else if(strncmp(argv[i], "-D", 2) == 0) {
+            daemonize = 1;
         }
     }
     
@@ -67,6 +72,10 @@ int main(int argc, char **argv) {
     }
     if(check_configuration()) {
         goto done;
+    }
+    
+    if(daemonize) {
+        daemon(0,0);
     }
     
     if(start_http_server(&options)) {
