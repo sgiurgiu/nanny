@@ -175,7 +175,7 @@ int set_host_status(const char* host,host_status status) {
     pthread_mutex_lock(&host_status_mtx);
     if(existing_status == HOST_UNKNOWN) {
         sqlite3_stmt *stmt;
-        if(sqlite3_prepare_v2(db,"INSERT INTO HOST_STATUS (NAME,STATUS) VALUES (?,?)",-1,&stmt,0) != SQLITE_OK) {
+        if(sqlite3_prepare_v2(db,"INSERT INTO HOST_STATUS (STATUS,NAME) VALUES (?,?)",-1,&stmt,0) != SQLITE_OK) {
             fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
             pthread_mutex_unlock(&host_status_mtx);
             return 1;
