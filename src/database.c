@@ -241,6 +241,7 @@ host_status get_host_status(const char* host) {
     }
     sqlite3_finalize(stmt);
     pthread_mutex_unlock(&host_status_mtx);
+    fprintf(stderr, "Cannot get host status for %s. It is not found.\n", host);        
     return HOST_UNKNOWN;
 }
 
@@ -296,6 +297,7 @@ names* get_host_names() {
         name->name = (char*) malloc(length+1);
         memset(name->name,0,length+1);
         strncpy(name->name,(const char*)value,length);        
+        printf("Found host name %s\n",name->name);
     }
     sqlite3_finalize(stmt);
     
