@@ -8,6 +8,7 @@ project(nanny)
 add_definitions(-std=c99 -Wall -pedantic -Wextra -DMG_ENABLE_HTTP_WEBSOCKET=0 -DMG_ENABLE_MQTT=0)
 find_package(PkgConfig REQUIRED)
 pkg_search_module(JSON_C REQUIRED json-c)
+
 find_path(PFVAR_INCLUDE_DIR net/pfvar.h
     /usr/local/include
     /usr/include
@@ -38,7 +39,7 @@ endif(PFVAR_INCLUDE_DIR MATCHES PFVAR_INCLUDE_DIR-NOTFOUND)
 set(EXECUTABLE_NAME "nanny")
 
 add_executable(${EXECUTABLE_NAME} ${NANNY_SRC})
-target_link_libraries(${EXECUTABLE_NAME} pthread)
+target_link_libraries(${EXECUTABLE_NAME} pthread ${CMAKE_DL_LIBS})
 target_link_libraries(${EXECUTABLE_NAME} ${JSON_C_LIBRARIES})
 
 install(TARGETS ${EXECUTABLE_NAME} RUNTIME DESTINATION bin)
