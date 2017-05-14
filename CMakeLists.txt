@@ -20,6 +20,7 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
 endif(CMAKE_BUILD_TYPE MATCHES Debug)
 
 include_directories(${JSON_C_INCLUDE_DIRS})
+link_directories(${JSON_C_LIBRARY_DIRS})
 
 set(NANNY_SRC src/main.c
               src/http_server.c
@@ -36,7 +37,7 @@ endif(PFVAR_INCLUDE_DIR MATCHES PFVAR_INCLUDE_DIR-NOTFOUND)
 set(EXECUTABLE_NAME "nanny")
 
 add_executable(${EXECUTABLE_NAME} ${NANNY_SRC})
-target_link_libraries(${EXECUTABLE_NAME} pthread dl)
+target_link_libraries(${EXECUTABLE_NAME} pthread)
 target_link_libraries(${EXECUTABLE_NAME} ${JSON_C_LIBRARIES})
 
 install(TARGETS ${EXECUTABLE_NAME} RUNTIME DESTINATION bin)
