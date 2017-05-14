@@ -27,6 +27,24 @@ static int pfctl_ltoprefix(in_addr_t mask)
 }
 
 
+void kill_states(int dev,struct in_addr address) {
+    struct pfioc_state_kill psk;
+    struct pf_addr source_addr;
+    memset(&psk, 0, sizeof(psk));
+    memset(&source_addr, 0, sizeof(source_addr));
+
+    source_addr.v4 = address;
+    psk.psk_af = AF_INET;
+    
+    memcpy(&psk.psk_src.addr.v.a.addr, &source_addr,
+        sizeof(psk.psk_src.addr.v.a.addr));
+    memset(&psk.psk_src.addr.v.a.mask, 0xff,sizeof(psk.psk_src.addr.v.a.mask));
+    
+    if (ioctl(dev, DIOCKILLSTATES, &psk)) {
+        perror("Cannot kill states");
+    }
+}
+
 int block_address(struct in_addr address) {
 	char* pf_table_name = get_configuration_value("PF_TABLE_NAME");
 	if(!pf_table_name) {
@@ -64,6 +82,8 @@ int block_address(struct in_addr address) {
                 return -1;
         }
         /*printf("added %d addresses\n",io.pfrio_nadd);*/
+        
+        kill_states(dev,address);
 
         close(dev);
 	return 0;

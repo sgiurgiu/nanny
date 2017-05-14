@@ -87,6 +87,12 @@ static void block_name_resolve_handler_http(struct mg_dns_message *dns_message,v
 static void handle_block(struct mg_connection *nc, int ev, void *ev_data) {
     struct http_message *hm = (struct http_message *) ev_data;
     if(ev == MG_EV_HTTP_REQUEST) {
+        if(strncmp("POST",hm->method.p,4) != 0) {
+            mg_send_head(nc,400,12,"Content-Type: text/plain");
+            mg_printf(nc,"%s", "Bad Request");
+            nc->flags |= MG_F_SEND_AND_CLOSE;
+            return;
+        }        
         char host[256];
         memset(host,0,sizeof(host));
         char* local_nameserver = get_configuration_value("LOCAL_NAMESERVER");
@@ -162,8 +168,14 @@ static void allow_reverse_dns_resolve_handler(struct mg_dns_message *dns_message
 }
 
 static void handle_allow(struct mg_connection *nc, int ev, void *ev_data) {
-    (void) ev_data;
+    struct http_message *hm = (struct http_message *) ev_data;
     if(ev == MG_EV_HTTP_REQUEST) {
+        if(strncmp("POST",hm->method.p,4) != 0) {
+            mg_send_head(nc,400,12,"Content-Type: text/plain");
+            mg_printf(nc,"%s", "Bad Request");
+            nc->flags |= MG_F_SEND_AND_CLOSE;
+            return;
+        }
         char* local_nameserver = get_configuration_value("LOCAL_NAMESERVER");
         struct mg_resolve_async_opts opts;
         memset(&opts, 0, sizeof(opts));
@@ -227,6 +239,13 @@ static void ip_resolve_handler(struct mg_dns_message *dns_message,void *user_dat
 static void handle_block_status(struct mg_connection *nc, int ev, void *ev_data) {
     struct http_message *hm = (struct http_message *) ev_data;
     if(ev == MG_EV_HTTP_REQUEST) {
+        if(strncmp("GET",hm->method.p,3) != 0) {
+            mg_send_head(nc,400,12,"Content-Type: text/plain");
+            mg_printf(nc,"%s", "Bad Request");
+            nc->flags |= MG_F_SEND_AND_CLOSE;
+            return;
+        }
+
         char host[256];
         memset(host,0,sizeof(host));
         if(mg_get_http_var(&hm->body,"Host",host,sizeof(host)) <= 0) {
@@ -258,6 +277,7 @@ static void block_name_resolve_handler(struct mg_dns_message *dns_message,void *
                 if(!mg_dns_parse_record_data(dns_message,&record,&ina,sizeof(struct in_addr))) {
                     //printf("found ip: %s\n",inet_ntoa(ina));
                     block_address(ina);
+                    set_host_status(name->name,HOST_BLOCKED);
                 }
             }
         }
@@ -289,7 +309,7 @@ static void block_everyone(struct mg_mgr *mgr) {
             char* host = name->name;
             int usage_today = get_host_today_usage(host);
             int today_limit = get_host_today_limit(host);
-            if(usage_today > today_limit) {
+            if(usage_today >= today_limit) {
                 char* local_nameserver = get_configuration_value("LOCAL_NAMESERVER");
                 struct mg_resolve_async_opts opts;
                 memset(&opts, 0, sizeof(opts));
