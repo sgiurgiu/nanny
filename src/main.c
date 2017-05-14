@@ -12,10 +12,11 @@ static const char *db_file = "db/nanny.db";
 
 
 static void print_usage(char* name) {
-    printf("Usage: %s [-a [ip:]port] [-r <folder>] [-d|--db <db_file>]\n",name);
+    printf("Usage: %s [-a [ip:]port] [-r <folder>] [-d|--db <db_file>] [-D]\n",name);
     printf("\t -a [ip:]port  Specifies the IP and the port the server should listen on. Eg. 127.0.0.1. Default 8000\n");
     printf("\t -r <folder>   Specifies the document root folder. Where index.html is located. Default '.'\n");
     printf("\t -d|--db <db_file> Database location. Default 'db/nanny.db'\n");
+    printf("\t -D Daemonize.\n");
     printf("\t -h|--help This help message.\n");
 }
 
@@ -75,7 +76,9 @@ int main(int argc, char **argv) {
     }
     
     if(daemonize) {
-        daemon(0,0);
+        if(daemon(0,1)) {
+            fprintf(stderr,"Cannot daemonize\n");
+        }
     }
     
     if(start_http_server(&options)) {
