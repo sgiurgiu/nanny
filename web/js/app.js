@@ -10,10 +10,17 @@ var displayStatus = function() {
             $("#internet_status").html("Internet is open");
             $("#switch_button").text("Close");
         }
-        $("#usage").html("Today you have used "+result.Usage+" minutes. Limit is "+result.Limit+" minutes");
+        $("#usage").html("Today you have used "+minutesToStr(result.Usage)+" minutes. Limit is "+minutesToStr(result.Limit)+" minutes");
     }).fail(function(){
         
     });
+}
+
+function minutesToStr(min) {
+if(min < 0) return "N/A";
+var hours = ~~(min/60);
+var minutes = Math.floor(min%60);
+return hours+"H:"+minutes+"M";
 }
 
 function changeStatus() {
