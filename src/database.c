@@ -23,14 +23,38 @@ int initialize_database(const char* path) {
     ERRCHECK("Can't execute query");
     rc = sqlite3_exec(db,"CREATE TABLE IF NOT EXISTS HOST_STATUS(NAME TEXT,STATUS INT)",NULL,NULL,NULL);
     ERRCHECK("Can't execute query");
+    rc = sqlite3_exec(db,"CREATE TABLE IF NOT EXISTS HOST_ALLOWANCE_EXT(NAME TEXT,DAY TEXT, MINUTES INT)",NULL,NULL,NULL);
+    ERRCHECK("Can't execute query");
     
     return rc;
+}
+
+static int get_host_today_limit_ext(const char* host) {
+    sqlite3_stmt *stmt;
+    
+    if(sqlite3_prepare_v2(db,"SELECT MINUTES FROM HOST_ALLOWANCE_EXT WHERE NAME=? AND DAY=date('now','localtime')",-1,&stmt,0) != SQLITE_OK) {
+        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+        return 0;
+    }
+    if(sqlite3_bind_text(stmt,1,host,-1,NULL) != SQLITE_OK) {
+        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        return 0;
+    }
+    if(sqlite3_step(stmt) == SQLITE_ROW) {
+        int minutes = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+        return minutes;
+    }
+    
+    sqlite3_finalize(stmt);
+    return 0;
 }
 
 int get_host_today_limit(const char* host) {
     sqlite3_stmt *stmt;
     
-    if(sqlite3_prepare_v2(db,"SELECT MINUTES FROM HOST_ALLOWANCE WHERE NAME=? AND DAY=strftime('%w','now')",-1,&stmt,0) != SQLITE_OK) {
+    if(sqlite3_prepare_v2(db,"SELECT MINUTES FROM HOST_ALLOWANCE WHERE NAME=? AND DAY=strftime('%w','now','localtime')",-1,&stmt,0) != SQLITE_OK) {
         fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
         return -1;
     }
@@ -42,7 +66,7 @@ int get_host_today_limit(const char* host) {
     if(sqlite3_step(stmt) == SQLITE_ROW) {
         int minutes = sqlite3_column_int(stmt, 0);
         sqlite3_finalize(stmt);
-        return minutes;
+        return minutes + get_host_today_limit_ext(host);
     }
     
     sqlite3_finalize(stmt);
@@ -56,7 +80,7 @@ int add_minutes_to_host_usage(const char* host, int minutes) {
     if(current_minutes < 0) {
         sqlite3_stmt *stmt;
         pthread_mutex_lock(&host_usage_mtx);
-        if(sqlite3_prepare_v2(db,"INSERT INTO HOST_USAGE (NAME,MINUTES,DAY) VALUES(?,?,date('now'))",-1,&stmt,0) != SQLITE_OK) {
+        if(sqlite3_prepare_v2(db,"INSERT INTO HOST_USAGE (NAME,MINUTES,DAY) VALUES(?,?,date('now','localtime'))",-1,&stmt,0) != SQLITE_OK) {
             fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
             pthread_mutex_unlock(&host_usage_mtx);
             return -1;
@@ -80,7 +104,7 @@ int add_minutes_to_host_usage(const char* host, int minutes) {
     } else {
         sqlite3_stmt *stmt;
         pthread_mutex_lock(&host_usage_mtx);
-        if(sqlite3_prepare_v2(db,"UPDATE HOST_USAGE SET MINUTES=? WHERE NAME=? AND DAY=date('now')",-1,&stmt,0) != SQLITE_OK) {
+        if(sqlite3_prepare_v2(db,"UPDATE HOST_USAGE SET MINUTES=? WHERE NAME=? AND DAY=date('now','localtime')",-1,&stmt,0) != SQLITE_OK) {
             fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
             pthread_mutex_unlock(&host_usage_mtx);
             return -1;
@@ -147,7 +171,7 @@ names* get_hosts_with_status(host_status status) {
 int get_host_today_usage(const char* host) {
     sqlite3_stmt *stmt;
     pthread_mutex_lock(&host_usage_mtx);
-    if(sqlite3_prepare_v2(db,"SELECT MINUTES FROM HOST_USAGE WHERE NAME=? AND DAY=date('now')",-1,&stmt,0) != SQLITE_OK) {
+    if(sqlite3_prepare_v2(db,"SELECT MINUTES FROM HOST_USAGE WHERE NAME=? AND DAY=date('now','localtime')",-1,&stmt,0) != SQLITE_OK) {
         fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
         pthread_mutex_unlock(&host_usage_mtx);
         return -1;
