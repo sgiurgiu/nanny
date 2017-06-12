@@ -58,23 +58,23 @@ int block_address(struct in_addr address) {
 		return 1;
 	}
 	struct pfr_table table;
-        bzero(&table,sizeof(struct pfr_table));
+    bzero(&table,sizeof(struct pfr_table));
 	strncpy(table.pfrt_name,pf_table_name,strlen(pf_table_name));
 	free(pf_table_name);
 	
 	struct pfr_addr addr;
-        bzero(&addr,sizeof(struct pfr_addr));
+    bzero(&addr,sizeof(struct pfr_addr));
 	addr.pfra_ip4addr = address;
-        addr.pfra_af = AF_INET;
-        addr.pfra_net = pfctl_ltoprefix(0xffffff00);
+    addr.pfra_af = AF_INET;
+    addr.pfra_net = pfctl_ltoprefix(0xffffff00);
 
 	struct pfioc_table io;
 	bzero(&io,sizeof(io));
 	
 	io.pfrio_table = table;
-        io.pfrio_buffer = &addr;
-        io.pfrio_esize = sizeof(struct pfr_addr);
-        io.pfrio_size = 1;
+    io.pfrio_buffer = &addr;
+    io.pfrio_esize = sizeof(struct pfr_addr);
+    io.pfrio_size = 1;
 
         if(ioctl(dev,DIOCRADDADDRS,&io)) {
                 perror("Cannot add address to table");

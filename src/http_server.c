@@ -10,7 +10,9 @@ static struct mg_serve_http_opts s_http_server_opts;
 static int s_sig_num = 0;
 static char monitoring_thread_done = 0;
 static struct mg_mgr mgr;
-
+static pthread_mutex_t wait_monitoring_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t wait_monitoring_cv = PTHREAD_COND_INITIALIZER;
+ 
 struct name_block_data {
     struct mg_connection *nc;
     char* host;
@@ -303,6 +305,8 @@ static void block_everyone(struct mg_mgr *mgr) {
 
  static void *monitoring_thread_start(void *arg) {
      (void)arg;
+     
+     
      while(!monitoring_thread_done) {
          names* name = get_hosts_with_status(HOST_ALLOWED);
          while(name) {
@@ -318,6 +322,7 @@ static void block_everyone(struct mg_mgr *mgr) {
                 mg_resolve_async_opt(&mgr,host,MG_DNS_A_RECORD,block_name_resolve_handler,name,opts);
                 name=next;
             } else {
+                printf("add minutes to host usage\n");
                 add_minutes_to_host_usage(host,1);
                 names* tmp = name;
                 name=name->next;
@@ -325,9 +330,17 @@ static void block_everyone(struct mg_mgr *mgr) {
                 free(tmp);
             }
          }
-         if(!monitoring_thread_done) {
-            sleep(60);
+
+         struct timespec wait_time;
+         wait_time.tv_sec = time(NULL) + 60;
+         wait_time.tv_nsec = 0;
+         pthread_mutex_lock(&wait_monitoring_mutex);
+         while(!monitoring_thread_done) {
+            printf("waiting for time to pass\n");
+            int ret = pthread_cond_timedwait(&wait_monitoring_cv,&wait_monitoring_mutex,&wait_time);            
+            if(ret == ETIMEDOUT || difftime(time(NULL),wait_time.tv_sec) >= 60) break;
          }
+         pthread_mutex_unlock(&wait_monitoring_mutex);
      }
      return 0;
  }
@@ -369,9 +382,15 @@ int start_http_server(const http_server_options*  const options) {
         mg_mgr_poll(&mgr, 1000);
     }
     monitoring_thread_done = 1;
+    
+    pthread_mutex_lock(&wait_monitoring_mutex);
+    pthread_cond_signal(&wait_monitoring_cv);
+    pthread_mutex_unlock(&wait_monitoring_mutex);
     void* res;
     pthread_join(monitoring_thread,&res);
     
+    pthread_mutex_destroy(&wait_monitoring_mutex);
+    pthread_cond_destroy(&wait_monitoring_cv);    
 done:    
     mg_mgr_free(&mgr);
     return result;

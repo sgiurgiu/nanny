@@ -41,14 +41,12 @@ static int get_host_today_limit_ext(const char* host) {
         sqlite3_finalize(stmt);
         return 0;
     }
-    if(sqlite3_step(stmt) == SQLITE_ROW) {
-        int minutes = sqlite3_column_int(stmt, 0);
-        sqlite3_finalize(stmt);
-        return minutes;
+    int minutes = 0;
+    while(sqlite3_step(stmt) == SQLITE_ROW) {
+        minutes += sqlite3_column_int(stmt, 0);
     }
-    
     sqlite3_finalize(stmt);
-    return 0;
+    return minutes;
 }
 
 int get_host_today_limit(const char* host) {
@@ -269,8 +267,7 @@ host_status get_host_status(const char* host) {
     return HOST_UNKNOWN;
 }
 
-char* get_configuration_value(const char* key)
-{
+char* get_configuration_value(const char* key) {
     sqlite3_stmt *stmt;
     if(sqlite3_prepare_v2(db,"SELECT VALUE FROM CONFIGURATION WHERE KEY=?",-1,&stmt,0) != SQLITE_OK) {
         fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
