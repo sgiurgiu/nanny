@@ -7,6 +7,8 @@ daemon_timeout=61
 
 . /etc/rc.d/rc.subr
 
+daemon_timeout=61
+
 rc_reload=NO
 
 rc_cmd $1
