@@ -30,7 +30,7 @@ set(NANNY_SRC src/main.c
               src/sqlite3.c
    )
 
-set_source_files_properties(src/mongoose.c PROPERTIES COMPILE_FLAGS -Wno-format -Wno-format-pedantic)
+set_source_files_properties(src/mongoose.c PROPERTIES COMPILE_FLAGS -Wno-format COMPILE_FLAGS -Wno-format-pedantic)
 set_source_files_properties(src/sqlite3.c PROPERTIES COMPILE_FLAGS -Wno-implicit-fallthrough)
 
 if(PFVAR_INCLUDE_DIR MATCHES PFVAR_INCLUDE_DIR-NOTFOUND)
