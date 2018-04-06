@@ -46,7 +46,7 @@ void kill_states(int dev,struct in_addr address) {
     }
 }
 
-static int update_table(struct in_addr address,unsigned long request)
+static int update_table(struct in_addr address,unsigned long request, bool kill_connection)
 {
 	char* pf_table_name = get_configuration_value("PF_TABLE_NAME");
 	if(!pf_table_name) {
@@ -86,8 +86,9 @@ static int update_table(struct in_addr address,unsigned long request)
             return -1;
     }
     /*printf("added %d addresses\n",io.pfrio_nadd);*/
-    
-    kill_states(dev,address);
+    if(kill_connection) {
+        kill_states(dev,address);
+    }
 
     close(dev);    
     return 0;
@@ -107,7 +108,7 @@ static bool is_add_to_block()
 
 int block_address(struct in_addr address) {
 	bool add = is_add_to_block();
-    int result = update_table(address,add ? DIOCRADDADDRS : DIOCRDELADDRS);
+    int result = update_table(address,add ? DIOCRADDADDRS : DIOCRDELADDRS,true);
 	
 	return result;
 }
@@ -115,7 +116,7 @@ int block_address(struct in_addr address) {
 int unblock_address(struct in_addr address) {
     
     bool add = is_add_to_block();
-    int result = update_table(address,add ? DIOCRDELADDRS: DIOCRADDADDRS);
+    int result = update_table(address,add ? DIOCRDELADDRS: DIOCRADDADDRS,false);
 	
 	return result;    
 }
