@@ -11674,7 +11674,8 @@ int mg_resolve_async_opt(struct mg_mgr *mgr, const char *name, int query,
       nameserver = MG_DEFAULT_NAMESERVER;
     }
   }
-  snprintf(nameserver_url, sizeof(nameserver_url), "udp://%s", nameserver);
+
+  snprintf(nameserver_url, sizeof(nameserver_url), "udp://%s:53", nameserver);
 
   dns_nc = mg_connect(mgr, nameserver_url, MG_CB(mg_resolve_async_eh, NULL));
   if (dns_nc == NULL) {

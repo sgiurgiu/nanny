@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #include "database.h"
 
@@ -45,22 +46,25 @@ void kill_states(int dev,struct in_addr address) {
     }
 }
 
-int block_address(struct in_addr address) {
+static int update_table(struct in_addr address,unsigned long request)
+{
 	char* pf_table_name = get_configuration_value("PF_TABLE_NAME");
 	if(!pf_table_name) {
 		fprintf(stderr, "PF_TABLE_NAME option is not defined\n");
 	        return 1;
 	}
-	int dev = open("/dev/pf",O_RDWR);
+    
+    int dev = open("/dev/pf",O_RDWR);
 	if( dev == -1) {
 		fprintf(stderr,"Cannot open /dev/pf\n");
-		free(pf_table_name);
+        free(pf_table_name);
 		return 1;
 	}
 	struct pfr_table table;
     bzero(&table,sizeof(struct pfr_table));
 	strncpy(table.pfrt_name,pf_table_name,strlen(pf_table_name));
 	free(pf_table_name);
+    pf_table_name = NULL;
 	
 	struct pfr_addr addr;
     bzero(&addr,sizeof(struct pfr_addr));
@@ -76,60 +80,44 @@ int block_address(struct in_addr address) {
     io.pfrio_esize = sizeof(struct pfr_addr);
     io.pfrio_size = 1;
 
-        if(ioctl(dev,DIOCRADDADDRS,&io)) {
-                perror("Cannot add address to table");
-                close(dev);
-                return -1;
-        }
-        /*printf("added %d addresses\n",io.pfrio_nadd);*/
-        
-        kill_states(dev,address);
+    if(ioctl(dev,request,&io)) {
+            perror("Cannot update the table");
+            close(dev);
+            return -1;
+    }
+    /*printf("added %d addresses\n",io.pfrio_nadd);*/
+    
+    kill_states(dev,address);
 
-        close(dev);
-	return 0;
+    close(dev);    
+    return 0;
+}
+
+static bool is_add_to_block()
+{
+	char* add_to_block= get_configuration_value("PF_ADD_BLOCK");
+    if(!add_to_block) {
+		fprintf(stderr, "PF_ADD_BLOCK option is not defined\n");
+        return true;
+	}
+	bool add = strncmp("true",add_to_block,4) == 0 || strncmp("T",add_to_block,1)==0 || strncmp("1",add_to_block,1)==0;
+    free(add_to_block);
+    return add;
+}
+
+int block_address(struct in_addr address) {
+	bool add = is_add_to_block();
+    int result = update_table(address,add ? DIOCRADDADDRS : DIOCRDELADDRS);
+	
+	return result;
 }
 
 int unblock_address(struct in_addr address) {
-        char* pf_table_name = get_configuration_value("PF_TABLE_NAME");
-        if(!pf_table_name) {
-                fprintf(stderr, "PF_TABLE_NAME option is not defined\n");
-                return 1;
-        }
-        int dev = open("/dev/pf",O_RDWR);
-        if( dev == -1) {
-                fprintf(stderr,"Cannot open /dev/pf\n");
-                free(pf_table_name);
-                return 1;
-        }
-        struct pfr_table table;
-        bzero(&table,sizeof(struct pfr_table));
-        strncpy(table.pfrt_name,pf_table_name,strlen(pf_table_name));
-        free(pf_table_name);
-        
-        struct pfr_addr addr;
-        bzero(&addr,sizeof(struct pfr_addr));
-        addr.pfra_ip4addr = address;
-        addr.pfra_af = AF_INET;
-        addr.pfra_net = pfctl_ltoprefix(0xffffff00);
-
-        struct pfioc_table io;
-        bzero(&io,sizeof(io));
-        
-        io.pfrio_table = table;
-        io.pfrio_buffer = &addr;
-        io.pfrio_esize = sizeof(struct pfr_addr);
-        io.pfrio_size = 1;
-
-        if(ioctl(dev,DIOCRDELADDRS,&io)) {
-                perror("Cannot add address to table");
-                close(dev);
-                return -1;
-        }
-        /*printf("added %d addresses\n",io.pfrio_nadd);*/
-
-        close(dev);
     
-    return 0;
+    bool add = is_add_to_block();
+    int result = update_table(address,add ? DIOCRDELADDRS: DIOCRADDADDRS);
+	
+	return result;    
 }
 char is_address_blocked(struct in_addr address) {
     return 0;
