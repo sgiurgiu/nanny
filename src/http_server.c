@@ -101,7 +101,7 @@ static void handle_block(struct mg_connection *nc, int ev, void *ev_data) {
         if(mg_get_http_var(&hm->body,"Host",host,sizeof(host)) <= 0) {            
             struct mg_resolve_async_opts opts;
             memset(&opts, 0, sizeof(opts));
-            opts.nameserver_url=local_nameserver;
+            opts.nameserver=local_nameserver;
             char reverse_name[INET_ADDRSTRLEN+15];//.in-addr.arpa
             memset(&reverse_name, 0, sizeof(reverse_name));
             const unsigned char *p = (const unsigned char *) (&nc->sa.sin.sin_addr.s_addr);
@@ -112,7 +112,7 @@ static void handle_block(struct mg_connection *nc, int ev, void *ev_data) {
         } else {
             struct mg_resolve_async_opts opts;
             memset(&opts, 0, sizeof(opts));
-            opts.nameserver_url=local_nameserver;
+            opts.nameserver=local_nameserver;
             struct name_block_data *block_data = (struct name_block_data*) malloc(sizeof(struct name_block_data));
             block_data->nc = nc;
             block_data->host = (char*) malloc(sizeof(host));
@@ -181,7 +181,7 @@ static void handle_allow(struct mg_connection *nc, int ev, void *ev_data) {
         char* local_nameserver = get_configuration_value("LOCAL_NAMESERVER");
         struct mg_resolve_async_opts opts;
         memset(&opts, 0, sizeof(opts));
-        opts.nameserver_url=local_nameserver;
+        opts.nameserver=local_nameserver;
         opts.max_retries=1;
         char reverse_name[INET_ADDRSTRLEN+15];//.in-addr.arpa
         memset(&reverse_name, 0, sizeof(reverse_name));
@@ -254,7 +254,7 @@ static void handle_block_status(struct mg_connection *nc, int ev, void *ev_data)
             char* local_nameserver = get_configuration_value("LOCAL_NAMESERVER");
             struct mg_resolve_async_opts opts;
             memset(&opts, 0, sizeof(opts));
-            opts.nameserver_url=local_nameserver;
+            opts.nameserver=local_nameserver;
             char reverse_name[INET_ADDRSTRLEN+15];//.in-addr.arpa
             memset(&reverse_name, 0, sizeof(reverse_name));
             const unsigned char *p = (const unsigned char *) (&nc->sa.sin.sin_addr.s_addr);
@@ -294,7 +294,7 @@ static void block_everyone(struct mg_mgr *mgr) {
     while(name != NULL) {
         struct mg_resolve_async_opts opts;
         memset(&opts, 0, sizeof(opts));        
-        opts.nameserver_url=local_nameserver;
+        opts.nameserver=local_nameserver;
         //printf("Querying %s\n",name->name);
         names* next = name->next;
         mg_resolve_async_opt(mgr,name->name,MG_DNS_A_RECORD,block_name_resolve_handler,name,opts);
@@ -317,7 +317,7 @@ static void block_everyone(struct mg_mgr *mgr) {
                 char* local_nameserver = get_configuration_value("LOCAL_NAMESERVER");
                 struct mg_resolve_async_opts opts;
                 memset(&opts, 0, sizeof(opts));
-                opts.nameserver_url=local_nameserver;
+                opts.nameserver=local_nameserver;
                 names* next = name->next;
                 mg_resolve_async_opt(&mgr,host,MG_DNS_A_RECORD,block_name_resolve_handler,name,opts);
                 name=next;
@@ -371,6 +371,7 @@ int start_http_server(const http_server_options*  const options) {
     
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
+
     
     block_everyone(&mgr);
     

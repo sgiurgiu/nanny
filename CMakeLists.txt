@@ -17,7 +17,7 @@ find_path(PFVAR_INCLUDE_DIR net/pfvar.h
 message(STATUS "Net/pfvar.h detected ${PFVAR_INCLUDE_DIR}")
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
-    add_definitions(-DNANNY_DEBUG)
+    add_definitions(-DNANNY_DEBUG -DCS_ENABLE_DEBUG=1)
 endif(CMAKE_BUILD_TYPE MATCHES Debug)
 
 include_directories(${JSON_C_INCLUDE_DIRS})
@@ -29,8 +29,13 @@ set(NANNY_SRC src/main.c
               src/mongoose.c
               src/sqlite3.c
    )
+
+set_source_files_properties(src/mongoose.c PROPERTIES COMPILE_FLAGS -Wno-format)
+set_source_files_properties(src/sqlite3.c PROPERTIES COMPILE_FLAGS -Wno-implicit-fallthrough)
+
 if(PFVAR_INCLUDE_DIR MATCHES PFVAR_INCLUDE_DIR-NOTFOUND)
     list(APPEND NANNY_SRC src/pf_mock.c)
+    set_source_files_properties(src/pf_mock.c PROPERTIES COMPILE_FLAGS -Wno-unused-parameter)
 else(PFVAR_INCLUDE_DIR MATCHES PFVAR_INCLUDE_DIR-NOTFOUND)
   include_directories(${PFVAR_INCLUDE_DIR})
    list(APPEND NANNY_SRC src/pf_real.c)
