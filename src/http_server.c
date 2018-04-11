@@ -2,7 +2,7 @@
 #include "database.h"
 #include "mongoose.h"
 #include "packet_filter.h"
-#include <json.h>
+#include <jansson.h>
 
 #include <arpa/inet.h>
 
@@ -197,21 +197,22 @@ static void send_host_status(struct mg_connection *nc, const char* host) {
     host_status status = get_host_status(host);
     int usage_today = get_host_today_usage(host);
     int today_limit = get_host_today_limit(host);
-    json_object* jobj = json_object_new_object();
-    json_object *jhost = json_object_new_string(host);
-    json_object *jstatus = json_object_new_int(status);
-    json_object *jusage = json_object_new_int(usage_today);
-    json_object *jlimit = json_object_new_int(today_limit);
+    json_auto_t* jobj = json_object();
+    json_auto_t *jhost = json_string(host);
+    json_auto_t *jstatus = json_integer(status);
+    json_auto_t *jusage = json_integer(usage_today);
+    json_auto_t *jlimit = json_integer(today_limit);
     
-    json_object_object_add(jobj,"Host", jhost);
-    json_object_object_add(jobj,"Status", jstatus);
-    json_object_object_add(jobj,"Usage", jusage);
-    json_object_object_add(jobj,"Limit", jlimit);
+    json_object_set(jobj,"Host", jhost);
+    json_object_set(jobj,"Status", jstatus);
+    json_object_set(jobj,"Usage", jusage);
+    json_object_set(jobj,"Limit", jlimit);
     
-    const char* content = json_object_to_json_string(jobj);
+    char* content = json_dumps(jobj,JSON_COMPACT);
     mg_send_head(nc,200,strlen(content),"Content-Type: application/json");
     mg_printf(nc,"%s", content);
     nc->flags |= MG_F_SEND_AND_CLOSE;
+    free(content);
 }
 
 static void ip_resolve_handler(struct mg_dns_message *dns_message,void *user_data, enum mg_resolve_err err) {
@@ -306,7 +307,6 @@ static void block_everyone(struct mg_mgr *mgr) {
  static void *monitoring_thread_start(void *arg) {
      (void)arg;
      
-     
      while(!monitoring_thread_done) {
          names* name = get_hosts_with_status(HOST_ALLOWED);
          while(name) {
@@ -371,7 +371,6 @@ int start_http_server(const http_server_options*  const options) {
     
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
-
     
     block_everyone(&mgr);
     
