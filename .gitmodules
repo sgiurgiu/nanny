@@ -1,3 +1,6 @@
 [submodule "external/jwt"]
 	path = external/jwt
 	url = https://github.com/benmcollins/libjwt
+[submodule "external/libbcrypt"]
+	path = external/libbcrypt
+	url = https://github.com/rg3/libbcrypt.git

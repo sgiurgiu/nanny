@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <bcrypt.h>
 
 #include "mongoose.h"
 #include "http_server.h"
@@ -41,8 +42,48 @@ static int check_configuration() {
         return 1;
     }
     free(local_domain);
-    
+    char* jwt_sign_key = get_configuration_value("JWT_SIGN_KEY");
+    if(!jwt_sign_key) {
+        fprintf(stderr, "JWT_SIGN_KEY option is not defined\n");
+        return 1;
+    }
+    free(jwt_sign_key);    
     return 0;
+}
+
+static void initialize_database_roles() {
+    if(get_roles_count() > 0) return;
+    const char * roles[] = {
+        "ROLE_ADMIN",
+        "ROLE_USER"
+    };    
+    add_roles(roles,2);
+}
+static void initialize_database_users() {
+    if(get_users_count() > 0) return;
+ 	char salt[BCRYPT_HASHSIZE];
+ 	char hash[BCRYPT_HASHSIZE];
+ 	int ret;
+ 
+ 	ret = bcrypt_gensalt(12, salt);
+ 	assert(ret == 0);
+ 	ret = bcrypt_hashpw("admin", salt, hash);
+ 	assert(ret == 0);
+     
+    user* u = (user*)malloc(sizeof(user));
+    u->login = "admin";
+    u->password_hash = hash;
+    u->enabled = true;
+    const char * roles[] = {
+        "ROLE_ADMIN",
+        "ROLE_USER"
+    };      
+    u->roles = roles;
+    u->roles_count = 2;    
+    
+    add_user(u);
+    
+    free(u);
 }
 
 int main(int argc, char **argv) {
@@ -72,6 +113,9 @@ int main(int argc, char **argv) {
     if(initialize_database(db_file)) {
         return -1;
     }
+    initialize_database_roles();
+    initialize_database_users();
+    
     if(check_configuration()) {
         goto done;
     }

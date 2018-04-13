@@ -39,14 +39,92 @@ int initialize_database(const char* path) {
 
 static char* get_string(sqlite3_stmt *stmt, int col) {
     const unsigned char *value = sqlite3_column_text(stmt,col);
-    int length = sqlite3_column_bytes(stmt,0);
+    int length = sqlite3_column_bytes(stmt,col);
     char* str = (char*) malloc(length+1);
     strncpy(str,(const char*)value,length);        
     str[length]=0;
     return str;
 }
+int add_roles(const char** roles,int count) {
+    sqlite3_stmt *stmt;
+    if(sqlite3_prepare_v2(db,"INSERT INTO ROLES (ROLE_NAME) VALUES (?)",-1,&stmt,0) != SQLITE_OK) {
+        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        return 1;
+    }
+    
+    for(int i=0;i<count;i++) {
+        sqlite3_reset(stmt);
+        if(sqlite3_bind_text(stmt,1,roles[i],-1,NULL) != SQLITE_OK) {
+            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            sqlite3_finalize(stmt);
+            return 1;
+        }        
+        sqlite3_step(stmt);
+    }
+    sqlite3_finalize(stmt);
+    
+    return 0;
+}
+int get_roles_count() {
+    sqlite3_stmt *stmt;
+    if(sqlite3_prepare_v2(db,"SELECT COUNT(*) FROM ROLES",-1,&stmt,0) != SQLITE_OK) {
+        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        return -1;
+    }
+    
+    if(sqlite3_step(stmt) == SQLITE_ROW) {
+        int count = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+        return count;
+    }
+    sqlite3_finalize(stmt);  
+    return -1;    
+}
 
 int add_user(const user* u) {
+    sqlite3_stmt *stmt;
+    if(sqlite3_prepare_v2(db,"INSERT INTO USERS (LOGIN,PASSWORD_HASH,ENABLED) VALUES (?,?,?)",-1,&stmt,0) != SQLITE_OK) {
+        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        return 1;
+    }
+    if(sqlite3_bind_text(stmt,1,u->login,-1,NULL) != SQLITE_OK) {
+        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        return 1;
+    }
+    if(sqlite3_bind_text(stmt,2,u->password_hash,-1,NULL) != SQLITE_OK) {
+        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);        
+        return 1;
+    }
+    if(sqlite3_bind_int(stmt,3,u->enabled) != SQLITE_OK) {
+        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        return 1;
+    }    
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    sqlite3_int64 last_id = sqlite3_last_insert_rowid(db);
+    
+    if(sqlite3_prepare_v2(db,"INSERT INTO USER_ROLES (USER_ID,ROLE_ID) VALUES (?,(SELECT ID FROM ROLES WHERE ROLE_NAME=?))",-1,&stmt,0) != SQLITE_OK) {
+        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        return 1;
+    }
+    if(sqlite3_bind_int64(stmt,1,last_id) != SQLITE_OK) {
+        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        return 1;
+    }        
+    for(int i=0;i<u->roles_count;i++) {
+        sqlite3_reset(stmt);
+        if(sqlite3_bind_text(stmt,2,u->roles[i],-1,NULL) != SQLITE_OK) {
+            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            sqlite3_finalize(stmt);
+            return 1;
+        }        
+        sqlite3_step(stmt);
+    }
+    sqlite3_finalize(stmt);
     return 0;
 }
 
@@ -71,12 +149,12 @@ user * get_user(const char* username, size_t username_length) {
     
     if(sqlite3_prepare_v2(db,"SELECT ID,LOGIN,PASSWORD_HASH,ENABLED FROM USERS WHERE LOGIN=?",-1,&stmt,0) != SQLITE_OK) {
         fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
-        return 0;
+        return NULL;
     }
     if(sqlite3_bind_text(stmt,1,username,username_length,NULL) != SQLITE_OK) {
         fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
-        return 0;
+        return NULL;
     }
     
     if(sqlite3_step(stmt) != SQLITE_ROW) {
@@ -88,11 +166,48 @@ user * get_user(const char* username, size_t username_length) {
     u->login = get_string(stmt,1);
     u->password_hash = get_string(stmt,2);
     u->enabled = sqlite3_column_int(stmt, 3) != 0;
+    u->roles = NULL;
+    u->roles_count = 0;
     sqlite3_finalize(stmt);
     
+    if(sqlite3_prepare_v2(db,"SELECT COUNT(R.ROLE_NAME) FROM ROLES R,USER_ROLES U WHERE U.USER_ID=? AND R.ID=U.ROLE_ID",-1,&stmt,0) != SQLITE_OK) {
+        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+        goto err;
+    }    
+    if(sqlite3_bind_int(stmt,1,id) != SQLITE_OK) {
+        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        goto err;
+    }
     
-    
+    if(sqlite3_step(stmt) == SQLITE_ROW) {
+        u->roles_count = sqlite3_column_int(stmt, 0);
+    }    
+    sqlite3_finalize(stmt);
+    if(u->roles_count > 0) {
+        if(sqlite3_prepare_v2(db,"SELECT R.ROLE_NAME FROM ROLES R,USER_ROLES U WHERE U.USER_ID=? AND R.ID=U.ROLE_ID",-1,&stmt,0) != SQLITE_OK) {
+            fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+            goto err;
+        }    
+        if(sqlite3_bind_int(stmt,1,id) != SQLITE_OK) {
+            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            sqlite3_finalize(stmt);
+            goto err;
+        }
+        u->roles = (char**)malloc(u->roles_count * sizeof(char*));
+        int i=0;
+        while(sqlite3_step(stmt) != SQLITE_DONE) {
+            if(i < u->roles_count) {
+                u->roles[i] = get_string(stmt,0);
+            }
+            i++;
+        }
+        sqlite3_finalize(stmt);
+    }
     return u;
+err:
+    free_user(u);
+    return NULL;
 }
 
 static int get_host_today_limit_ext(const char* host) {
@@ -209,8 +324,6 @@ names* get_hosts_with_status(host_status status) {
     names* root = NULL;
     names* name = NULL;
     while(sqlite3_step(stmt) != SQLITE_DONE) {
-        const unsigned char * value = sqlite3_column_text(stmt, 0);
-        int length = sqlite3_column_bytes(stmt,0);
         if(root == NULL) {
             root = (names*)malloc(sizeof(names));
             root->name = NULL;
@@ -223,9 +336,7 @@ names* get_hosts_with_status(host_status status) {
             name->next = new_name;
             name = new_name;
         }
-        name->name = (char*) malloc(length+1);
-        memset(name->name,0,length+1);
-        strncpy(name->name,(const char*)value,length);        
+        name->name = get_string(stmt,0);
     }
     sqlite3_finalize(stmt);
     pthread_mutex_unlock(&host_status_mtx);
@@ -345,11 +456,7 @@ char* get_configuration_value(const char* key) {
         return NULL;
     }
     if(sqlite3_step(stmt) == SQLITE_ROW) {
-        const unsigned char * value = sqlite3_column_text(stmt, 0);
-        int length = sqlite3_column_bytes(stmt, 0);
-        char* value_copy = (char*) malloc(length+1);
-        memset(value_copy,0,length+1);
-        strncpy(value_copy,(const char*)value,length);
+        char* value_copy = get_string(stmt,0);
         sqlite3_finalize(stmt);
         return value_copy;
     }
@@ -367,8 +474,6 @@ names* get_host_names() {
     names* root = NULL;
     names* name = NULL;
     while(sqlite3_step(stmt) != SQLITE_DONE) {
-        const unsigned char * value = sqlite3_column_text(stmt, 0);
-        int length = sqlite3_column_bytes(stmt, 0);      
         if(root == NULL) {
             root = (names*)malloc(sizeof(names));
             root->name = NULL;
@@ -381,9 +486,7 @@ names* get_host_names() {
             name->next = new_name;
             name = new_name;
         }
-        name->name = (char*) malloc(length+1);
-        memset(name->name,0,length+1);
-        strncpy(name->name,(const char*)value,length);        
+        name->name = get_string(stmt,0);
         printf("Found host name %s\n",name->name);
     }
     sqlite3_finalize(stmt);

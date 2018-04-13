@@ -24,5 +24,7 @@ struct user {
 };
 typedef struct user user;
 
+void free_user(user* u);
+
 #endif
 

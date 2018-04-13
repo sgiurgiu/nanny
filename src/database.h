@@ -16,6 +16,8 @@ int add_minutes_to_host_usage(const char* host, int minutes);
 int get_host_today_limit(const char* host);
 user* get_user(const char* username,size_t username_length);
 int add_user(const user* u);
+int add_roles(const char** roles,int count);
 int get_users_count();
+int get_roles_count();
 
 #endif

@@ -27,6 +27,7 @@ endif(CMAKE_BUILD_TYPE MATCHES Debug)
 include_directories(${JANSSON_INCLUDE_DIRS})
 include_directories(external/jwt/include ${OPENSSL_INCLUDE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
+include_directories(external/libbcrypt/)
 
 set(NANNY_SRC src/main.c
               src/http_server.c
@@ -38,7 +39,8 @@ set(NANNY_SRC src/main.c
               src/status_controller.c
               src/login_controller.c
               src/http_utils.c
-              src/bcrypt.c
+              src/domain.c
+              src/token_provider.c
    )
    
 set(JWT_SRC external/jwt/libjwt/base64.c
@@ -46,6 +48,13 @@ set(JWT_SRC external/jwt/libjwt/base64.c
     external/jwt/libjwt/jwt-openssl.c
     )
 write_file(${CMAKE_CURRENT_BINARY_DIR}/config.h "")    
+
+set(BCRYPT_SRC external/libbcrypt/bcrypt.c
+                external/libbcrypt/crypt_blowfish/crypt_blowfish.c
+                external/libbcrypt/crypt_blowfish/crypt_gensalt.c
+                external/libbcrypt/crypt_blowfish/wrapper.c
+                external/libbcrypt/crypt_blowfish/x86.S
+                )
 
 set_source_files_properties(src/mongoose.c PROPERTIES COMPILE_FLAGS -Wno-format COMPILE_FLAGS -Wno-format-pedantic)
 set_source_files_properties(src/sqlite3.c PROPERTIES COMPILE_FLAGS -Wno-implicit-fallthrough COMPILE_FLAGS -Wno-unused-parameter)
@@ -60,7 +69,7 @@ endif(PFVAR_INCLUDE_DIR MATCHES PFVAR_INCLUDE_DIR-NOTFOUND)
 
 set(EXECUTABLE_NAME "nanny")
 
-add_executable(${EXECUTABLE_NAME} ${NANNY_SRC} ${JWT_SRC})
+add_executable(${EXECUTABLE_NAME} ${NANNY_SRC} ${JWT_SRC} ${BCRYPT_SRC})
 target_link_libraries(${EXECUTABLE_NAME} ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(${EXECUTABLE_NAME} ${JANSSON_LIBRARIES} ${OPENSSL_CRYPTO_LIBRARY})
 
