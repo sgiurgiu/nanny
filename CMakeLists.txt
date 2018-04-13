@@ -8,6 +8,7 @@ list (APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 add_definitions( -Wall -pedantic -Wextra -DMG_ENABLE_HTTP_WEBSOCKET=0 -DMG_ENABLE_MQTT=0)
 
+#only because jwt wanted it
 find_package (Jansson REQUIRED)
 find_package( Threads ) 
 find_package (OpenSSL REQUIRED)
@@ -32,6 +33,12 @@ set(NANNY_SRC src/main.c
               src/database.c
               src/mongoose.c
               src/sqlite3.c
+              src/block_controller.c
+              src/allow_controller.c
+              src/status_controller.c
+              src/login_controller.c
+              src/http_utils.c
+              src/bcrypt.c
    )
    
 set(JWT_SRC external/jwt/libjwt/base64.c

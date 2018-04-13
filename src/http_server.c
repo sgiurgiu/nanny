@@ -2,22 +2,19 @@
 #include "database.h"
 #include "mongoose.h"
 #include "packet_filter.h"
-#include <jansson.h>
+#include "block_controller.h"
+#include "allow_controller.h"
+#include "status_controller.h"
+#include "login_controller.h"
 
-#include <arpa/inet.h>
+#include <stdbool.h>
 
 static struct mg_serve_http_opts s_http_server_opts;
 static int s_sig_num = 0;
-static char monitoring_thread_done = 0;
-static struct mg_mgr mgr;
+static bool monitoring_thread_done = false;
 static pthread_mutex_t wait_monitoring_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t wait_monitoring_cv = PTHREAD_COND_INITIALIZER;
  
-struct name_block_data {
-    struct mg_connection *nc;
-    char* host;
-};
-
 static void signal_handler(int sig_num) {
   signal(sig_num, signal_handler);
   s_sig_num = sig_num;
@@ -34,239 +31,6 @@ static void ev_handler(struct mg_connection *nc, int ev, void *ev_data) {
     default:
       break;
   }
-}
-
-static void send_block_host_result(struct mg_connection *nc, struct in_addr address, const char* host) {
-    block_address(address);
-    set_host_status(host,HOST_BLOCKED);
-    mg_send_head(nc,200,2,"Content-Type: text/plain");
-    mg_printf(nc,"%s", "OK");
-    nc->flags |= MG_F_SEND_AND_CLOSE;
-}
-
-static void block_reverse_dns_resolve_handler(struct mg_dns_message *dns_message,void *user_data, enum mg_resolve_err err) {
-    struct mg_connection *nc = (struct mg_connection *)user_data;
-    if(err == MG_RESOLVE_OK) {
-        for(int i=0;i<dns_message->num_answers;++i) {
-            struct mg_dns_resource_record record = dns_message->answers[i];
-            if(record.kind == MG_DNS_ANSWER) {
-                char name[256];
-                if(!mg_dns_parse_record_data(dns_message,&record,name,sizeof(name))) {
-                    send_block_host_result(nc,nc->sa.sin.sin_addr,name);
-                } else {
-                    mg_send_head(nc,500,14,"Content-Type: text/plain");
-                    mg_printf(nc, "Server Error");
-                    nc->flags |= MG_F_SEND_AND_CLOSE;
-                }
-            }
-        }
-    } else {
-        mg_send_head(nc,500,14,"Content-Type: text/plain");
-        mg_printf(nc, "Server Error");
-        nc->flags |= MG_F_SEND_AND_CLOSE;
-    }
-}
-
-static void block_name_resolve_handler_http(struct mg_dns_message *dns_message,void *user_data, enum mg_resolve_err err) {
-    struct name_block_data *block_data = (struct name_block_data*) user_data;
-    
-    if(err == MG_RESOLVE_OK) {
-        for(int i=0;i<dns_message->num_answers;++i) {
-            struct mg_dns_resource_record record = dns_message->answers[i];
-            if(record.kind == MG_DNS_ANSWER) {
-                struct in_addr ina;
-                if(!mg_dns_parse_record_data(dns_message,&record,&ina,sizeof(struct in_addr))) {
-                    //printf("found ip: %s\n",inet_ntoa(ina));
-                    send_block_host_result(block_data->nc,ina,block_data->host);
-                }
-            }
-        }
-    }
-    free(block_data->host);
-    free(block_data);
-}
-
-static void handle_block(struct mg_connection *nc, int ev, void *ev_data) {
-    struct http_message *hm = (struct http_message *) ev_data;
-    if(ev == MG_EV_HTTP_REQUEST) {
-        if(strncmp("POST",hm->method.p,4) != 0) {
-            mg_send_head(nc,400,12,"Content-Type: text/plain");
-            mg_printf(nc,"%s", "Bad Request");
-            nc->flags |= MG_F_SEND_AND_CLOSE;
-            return;
-        }        
-        char host[256];
-        memset(host,0,sizeof(host));
-        char* local_nameserver = get_configuration_value("LOCAL_NAMESERVER");
-        if(mg_get_http_var(&hm->body,"Host",host,sizeof(host)) <= 0) {            
-            struct mg_resolve_async_opts opts;
-            memset(&opts, 0, sizeof(opts));
-            opts.nameserver=local_nameserver;
-            char reverse_name[INET_ADDRSTRLEN+15];//.in-addr.arpa
-            memset(&reverse_name, 0, sizeof(reverse_name));
-            const unsigned char *p = (const unsigned char *) (&nc->sa.sin.sin_addr.s_addr);
-            snprintf(reverse_name,INET_ADDRSTRLEN+15,"%d.%d.%d.%d.in-addr.arpa",p[3],p[2],p[1],p[0]);
-            printf("Querying %s\n",reverse_name);
-            mg_resolve_async_opt(nc->mgr,reverse_name,MG_DNS_PTR_RECORD,block_reverse_dns_resolve_handler,nc,opts);
-            free(local_nameserver);
-        } else {
-            struct mg_resolve_async_opts opts;
-            memset(&opts, 0, sizeof(opts));
-            opts.nameserver=local_nameserver;
-            struct name_block_data *block_data = (struct name_block_data*) malloc(sizeof(struct name_block_data));
-            block_data->nc = nc;
-            block_data->host = (char*) malloc(sizeof(host));
-            memset(block_data->host,0,sizeof(host));
-            strncpy(block_data->host,host,sizeof(host));
-            mg_resolve_async_opt(nc->mgr,host,MG_DNS_A_RECORD,block_name_resolve_handler_http,block_data,opts);
-            free(local_nameserver);
-        }
-    }
-}
-
-static void send_allow_host_result(struct mg_connection *nc, struct in_addr address, const char* host) {
-    host_status status = get_host_status(host);
-    if(status == HOST_BLOCKED) {
-        int usage_today = get_host_today_usage(host);
-        int today_limit = get_host_today_limit(host);
-        if(usage_today < today_limit) {
-            unblock_address(address);
-            set_host_status(host,HOST_ALLOWED);
-            mg_send_head(nc,200,2,"Content-Type: text/plain");
-            mg_printf(nc,"%s", "OK");
-        } else {
-            mg_send_head(nc,403,10,"Content-Type: text/plain");
-            mg_printf(nc,"%s", "Forbidden");
-        }
-        nc->flags |= MG_F_SEND_AND_CLOSE;
-    } else {
-        mg_send_head(nc,403,10,"Content-Type: text/plain");
-        mg_printf(nc,"%s", "Forbidden");
-        nc->flags |= MG_F_SEND_AND_CLOSE;
-    }
-}
-
-static void allow_reverse_dns_resolve_handler(struct mg_dns_message *dns_message,void *user_data, enum mg_resolve_err err) {
-    struct mg_connection *nc = (struct mg_connection *)user_data;
-    if(err == MG_RESOLVE_OK) {
-        for(int i=0;i<dns_message->num_answers;++i) {
-            struct mg_dns_resource_record record = dns_message->answers[i];
-            if(record.kind == MG_DNS_ANSWER) {
-                char name[256];
-                if(!mg_dns_parse_record_data(dns_message,&record,name,sizeof(name))) {
-                    send_allow_host_result(nc,nc->sa.sin.sin_addr,name);
-                } else {
-                    mg_send_head(nc,500,14,"Content-Type: text/plain");
-                    mg_printf(nc, "Server Error");
-                    nc->flags |= MG_F_SEND_AND_CLOSE;
-                }
-            }
-        }
-    } else {
-        mg_send_head(nc,500,14,"Content-Type: text/plain");
-        mg_printf(nc, "Server Error");
-        nc->flags |= MG_F_SEND_AND_CLOSE;
-    }
-}
-
-static void handle_allow(struct mg_connection *nc, int ev, void *ev_data) {
-    struct http_message *hm = (struct http_message *) ev_data;
-    if(ev == MG_EV_HTTP_REQUEST) {
-        if(strncmp("POST",hm->method.p,4) != 0) {
-            mg_send_head(nc,400,12,"Content-Type: text/plain");
-            mg_printf(nc,"%s", "Bad Request");
-            nc->flags |= MG_F_SEND_AND_CLOSE;
-            return;
-        }
-        char* local_nameserver = get_configuration_value("LOCAL_NAMESERVER");
-        struct mg_resolve_async_opts opts;
-        memset(&opts, 0, sizeof(opts));
-        opts.nameserver=local_nameserver;
-        opts.max_retries=1;
-        char reverse_name[INET_ADDRSTRLEN+15];//.in-addr.arpa
-        memset(&reverse_name, 0, sizeof(reverse_name));
-        const unsigned char *p = (const unsigned char *) (&nc->sa.sin.sin_addr.s_addr);
-        snprintf(reverse_name,INET_ADDRSTRLEN+15,"%d.%d.%d.%d.in-addr.arpa",p[3],p[2],p[1],p[0]);
-        printf("Querying %s\n",reverse_name);
-        mg_resolve_async_opt(nc->mgr,reverse_name,MG_DNS_PTR_RECORD,allow_reverse_dns_resolve_handler,nc,opts);
-        free(local_nameserver);
-    }
-}
-
-static void send_host_status(struct mg_connection *nc, const char* host) {
-    host_status status = get_host_status(host);
-    int usage_today = get_host_today_usage(host);
-    int today_limit = get_host_today_limit(host);
-    json_auto_t* jobj = json_object();
-    json_auto_t *jhost = json_string(host);
-    json_auto_t *jstatus = json_integer(status);
-    json_auto_t *jusage = json_integer(usage_today);
-    json_auto_t *jlimit = json_integer(today_limit);
-    
-    json_object_set(jobj,"Host", jhost);
-    json_object_set(jobj,"Status", jstatus);
-    json_object_set(jobj,"Usage", jusage);
-    json_object_set(jobj,"Limit", jlimit);
-    
-    char* content = json_dumps(jobj,JSON_COMPACT);
-    mg_send_head(nc,200,strlen(content),"Content-Type: application/json");
-    mg_printf(nc,"%s", content);
-    nc->flags |= MG_F_SEND_AND_CLOSE;
-    free(content);
-}
-
-static void ip_resolve_handler(struct mg_dns_message *dns_message,void *user_data, enum mg_resolve_err err) {
-    struct mg_connection *nc = (struct mg_connection *)user_data;
-    if(err == MG_RESOLVE_OK) {
-        for(int i=0;i<dns_message->num_answers;++i) {
-            struct mg_dns_resource_record record = dns_message->answers[i];
-            if(record.kind == MG_DNS_ANSWER) {
-                char name[256];
-                if(!mg_dns_parse_record_data(dns_message,&record,name,sizeof(name))) {
-                    send_host_status(nc,name);
-                } else {
-                    mg_send_head(nc,500,14,"Content-Type: text/plain");
-                    mg_printf(nc, "Server Error");
-                    nc->flags |= MG_F_SEND_AND_CLOSE;
-                }
-            }
-        }
-    } else {
-        mg_send_head(nc,500,14,"Content-Type: text/plain");
-        mg_printf(nc, "Server Error");
-        nc->flags |= MG_F_SEND_AND_CLOSE;
-    }
-}
-
-
-static void handle_block_status(struct mg_connection *nc, int ev, void *ev_data) {
-    struct http_message *hm = (struct http_message *) ev_data;
-    if(ev == MG_EV_HTTP_REQUEST) {
-        if(strncmp("GET",hm->method.p,3) != 0) {
-            mg_send_head(nc,400,12,"Content-Type: text/plain");
-            mg_printf(nc,"%s", "Bad Request");
-            nc->flags |= MG_F_SEND_AND_CLOSE;
-            return;
-        }
-
-        char host[256];
-        memset(host,0,sizeof(host));
-        if(mg_get_http_var(&hm->body,"Host",host,sizeof(host)) <= 0) {
-            char* local_nameserver = get_configuration_value("LOCAL_NAMESERVER");
-            struct mg_resolve_async_opts opts;
-            memset(&opts, 0, sizeof(opts));
-            opts.nameserver=local_nameserver;
-            char reverse_name[INET_ADDRSTRLEN+15];//.in-addr.arpa
-            memset(&reverse_name, 0, sizeof(reverse_name));
-            const unsigned char *p = (const unsigned char *) (&nc->sa.sin.sin_addr.s_addr);
-            snprintf(reverse_name,INET_ADDRSTRLEN+15,"%d.%d.%d.%d.in-addr.arpa",p[3],p[2],p[1],p[0]);
-            printf("Querying %s\n",reverse_name);
-            mg_resolve_async_opt(nc->mgr,reverse_name,MG_DNS_PTR_RECORD,ip_resolve_handler,nc,opts);
-            free(local_nameserver);
-        } else {
-            send_host_status(nc,host);
-        }
-    }
 }
 
 static void block_name_resolve_handler(struct mg_dns_message *dns_message,void *user_data, enum mg_resolve_err err) {
@@ -305,7 +69,7 @@ static void block_everyone(struct mg_mgr *mgr) {
 }
 
  static void *monitoring_thread_start(void *arg) {
-     (void)arg;
+     struct mg_mgr* mgr = (struct mg_mgr*)arg;
      
      while(!monitoring_thread_done) {
          names* name = get_hosts_with_status(HOST_ALLOWED);
@@ -319,7 +83,7 @@ static void block_everyone(struct mg_mgr *mgr) {
                 memset(&opts, 0, sizeof(opts));
                 opts.nameserver=local_nameserver;
                 names* next = name->next;
-                mg_resolve_async_opt(&mgr,host,MG_DNS_A_RECORD,block_name_resolve_handler,name,opts);
+                mg_resolve_async_opt(mgr,host,MG_DNS_A_RECORD,block_name_resolve_handler,name,opts);
                 name=next;
             } else {
                 printf("add minutes to host usage\n");
@@ -354,7 +118,7 @@ int start_http_server(const http_server_options*  const options) {
         fprintf(stderr, "Cannot find %s directory, exiting\n", s_http_server_opts.document_root);
         return 1;
     }
-    
+    struct mg_mgr mgr;
     int result = 0;
     mg_mgr_init(&mgr, NULL);
     
@@ -364,10 +128,12 @@ int start_http_server(const http_server_options*  const options) {
         result = 1;
         goto done;
     }
+    
     mg_set_protocol_http_websocket(nc);
     mg_register_http_endpoint(nc, "/api/block", handle_block);
     mg_register_http_endpoint(nc, "/api/allow", handle_allow);
     mg_register_http_endpoint(nc, "/api/block_status", handle_block_status);
+    mg_register_http_endpoint(nc, "/api/login", handle_login);
     
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
@@ -375,13 +141,13 @@ int start_http_server(const http_server_options*  const options) {
     block_everyone(&mgr);
     
     pthread_t monitoring_thread;
-    pthread_create(&monitoring_thread,NULL,monitoring_thread_start,NULL);
+    pthread_create(&monitoring_thread,NULL,monitoring_thread_start,&mgr);
     
     printf("Starting server on address %s\n", options->address);
     while (s_sig_num == 0) {
         mg_mgr_poll(&mgr, 1000);
     }
-    monitoring_thread_done = 1;
+    monitoring_thread_done = true;
     
     pthread_mutex_lock(&wait_monitoring_mutex);
     pthread_cond_signal(&wait_monitoring_cv);

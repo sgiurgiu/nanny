@@ -1,17 +1,8 @@
 #ifndef DATABASE_H
 #define DATABASE_H
 
-enum host_status_t {
-    HOST_BLOCKED = 0,
-    HOST_ALLOWED = 1,
-    HOST_UNKNOWN = -1
-};
-struct names {
-    char* name;
-    struct names* next;
-};
-typedef struct names names;
-typedef enum host_status_t host_status;
+#include "domain.h"
+#include <stddef.h>
 
 int initialize_database(const char* path);
 char* get_configuration_value(const char* key);
@@ -23,4 +14,8 @@ void close_database();
 int get_host_today_usage(const char* host);
 int add_minutes_to_host_usage(const char* host, int minutes);
 int get_host_today_limit(const char* host);
+user* get_user(const char* username,size_t username_length);
+int add_user(const user* u);
+int get_users_count();
+
 #endif
