@@ -24,8 +24,8 @@ void handle_login(struct mg_connection *nc, int ev, void *ev_data) {
         fprintf(stderr, "json error on line %d: %s\n", json_error.line, json_error.text);
         return;
     }
-    json_auto_t *json_username = json_object_get(login_data,"username");
-    json_auto_t *json_password = json_object_get(login_data,"password");
+    json_t *json_username = json_object_get(login_data,"username");
+    json_t *json_password = json_object_get(login_data,"password");
     
     if(!json_is_string(json_username) || !json_is_string(json_password)) {
         mg_send_head(nc,400,12,"Content-Type: text/plain");
@@ -48,10 +48,11 @@ void handle_login(struct mg_connection *nc, int ev, void *ev_data) {
             mg_send_head(nc,200,strlen(content),"Content-Type: application/json");
             mg_printf(nc,"%s", content);
             nc->flags |= MG_F_SEND_AND_CLOSE;
-            free_user(u);
             free(content);
+            free_user(u);
             return;
         } 
+        free_user(u);
     } else {
         //this is to consume time even if the username is wrong/not found
         const char* hash = "$2a$12$RfdU1upmHpp3qZFZ.OyzB.fcVHzIrSW2XnW7YDuAaEokZzZq5Ldpa";
