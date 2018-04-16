@@ -22,6 +22,7 @@ char* make_test_token() {
     u.roles_count = 1;
     const char* roles[] = {"ROLE"};
     u.roles = roles;
+    u.password_hash = 0;
     return create_jwt(&u);
 }
 

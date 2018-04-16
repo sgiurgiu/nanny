@@ -53,9 +53,46 @@ char * create_jwt(user* u) {
     return content;
 }
 
+static void extract_roles(user* u, const char* roles) {
+    int count = 0;
+    const char* start_roles = roles;
+    const char* s = roles;
+    for(; *s!=0; s++) {
+        if(*s == ',') count++;
+    }
+    if ( s -start_roles > 0) {
+        u->roles_count = count + 1;
+        u->roles = 0;        
+    } else  {
+        u->roles_count = 0;
+        u->roles = 0;        
+        return;
+    }
+    u->roles = (char**)malloc(u->roles_count * sizeof(char*));
+    const char* start = roles;
+    int index = 0;
+    for(const char* s = roles; *s != 0; s++) {
+        if(*s == ',') {
+            size_t length = s - start;
+            char* str = (char*) malloc(length+1);
+            strncpy(str,(const char*)start,length);        
+            str[length]=0;
+            u->roles[index]=str;
+            index++;
+            start = s+1;
+        }
+    }
+    size_t length = strlen(start);
+    char* str = (char*) malloc(length+1);
+    strncpy(str,(const char*)start,length);        
+    str[length]=0;
+    u->roles[index]=str;
+    
+}
+
 user * extract_user(const char* token, size_t length) {
     (void)length;
-    const char* jwt_sign_key = (const char*)get_configuration_value("JWT_SIGN_KEY");
+    char* jwt_sign_key = get_configuration_value("JWT_SIGN_KEY");
     jwt_t *jwt = NULL;
     if(strncmp("Bearer ",token,7) == 0) {
         token = token + 7;
@@ -78,8 +115,9 @@ user * extract_user(const char* token, size_t length) {
     u->login = (char*)malloc(login_length);
     strncpy(u->login,login,login_length-1);
     u->login[login_length-1] = 0;
-    
-    
+    extract_roles(u,roles);
+    u->enabled = true;
+    u->password_hash = 0;
     
     free(jwt_sign_key);
     jwt_free(jwt);    
