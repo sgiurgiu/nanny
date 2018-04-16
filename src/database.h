@@ -6,6 +6,7 @@
 
 int initialize_database(const char* path);
 char* get_configuration_value(const char* key);
+void add_configuration_value(const char* key,const char* value);
 names* get_host_names();
 names* get_hosts_with_status(host_status status);
 host_status get_host_status(const char* host);

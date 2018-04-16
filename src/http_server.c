@@ -6,6 +6,7 @@
 #include "allow_controller.h"
 #include "status_controller.h"
 #include "login_controller.h"
+#include "admin_controller.h"
 
 #include <stdbool.h>
 
@@ -134,6 +135,7 @@ int start_http_server(const http_server_options*  const options) {
     mg_register_http_endpoint(nc, "/api/allow", handle_allow);
     mg_register_http_endpoint(nc, "/api/block_status", handle_block_status);
     mg_register_http_endpoint(nc, "/api/login", handle_login);
+    mg_register_http_endpoint(nc, "/api/admin/hosts", handle_admin_hosts);
     
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);

@@ -443,6 +443,25 @@ host_status get_host_status(const char* host) {
     fprintf(stderr, "Cannot get host status for %s. It is not found.\n", host);        
     return HOST_UNKNOWN;
 }
+void add_configuration_value(const char* key, const char* value)
+{
+    sqlite3_stmt *stmt;
+    if(sqlite3_prepare_v2(db,"INSERT INTO CONFIGURATION(KEY,VALUE) VALUES (?,?)",-1,&stmt,0) != SQLITE_OK) {
+        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        return;
+    }
+    if(sqlite3_bind_text(stmt,1,key,-1,SQLITE_STATIC) != SQLITE_OK) {
+        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+    }
+    if(sqlite3_bind_text(stmt,2,value,-1,SQLITE_STATIC) != SQLITE_OK) {
+        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+    }
+
+    sqlite3_step(stmt);   
+    sqlite3_finalize(stmt);
+}
 
 char* get_configuration_value(const char* key) {
     sqlite3_stmt *stmt;
