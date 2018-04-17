@@ -1,5 +1,6 @@
-#include <stdlib.h>
-#include <check.h>
+#include "check_nanny.h"
+
+
 #include "../src/token_provider.h"
 #include "../src/database.h"
 #include <jansson.h>
@@ -15,6 +16,7 @@ void teardown(void)
     close_database();
 }
 
+static
 char* make_test_token() {
     user u;
     u.login = "login";
@@ -76,18 +78,3 @@ Suite * tokens_suite(void)
 }
 
 
-int main(void)
-{
-    int number_failed;
-    Suite *s;
-    SRunner *sr;
-
-    s = tokens_suite();
-    sr = srunner_create(s);
-    srunner_set_fork_status (sr, CK_NOFORK);
-
-    srunner_run_all(sr, CK_NORMAL);
-    number_failed = srunner_ntests_failed(sr);
-    srunner_free(sr);
-   return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
-}

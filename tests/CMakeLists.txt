@@ -43,6 +43,7 @@ include_directories(${CHECK_INCLUDE_DIRS})
 
 set(TEST_SOURCES
   check_token.c
+  check_nanny.c
 )
 
 add_executable(check_nanny ${TEST_SOURCES})
