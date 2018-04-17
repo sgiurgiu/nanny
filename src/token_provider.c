@@ -91,14 +91,20 @@ static void extract_roles(user* u, const char* roles) {
 }
 
 user * extract_user(const char* token, size_t length) {
-    (void)length;
+    
     char* jwt_sign_key = get_configuration_value("JWT_SIGN_KEY");
     jwt_t *jwt = NULL;
+    size_t our_token_length = length;
     if(strncmp("Bearer ",token,7) == 0) {
         token = token + 7;
+        our_token_length-=7;
     }
-    if(jwt_decode(&jwt,token,(const unsigned char*)jwt_sign_key,strlen(jwt_sign_key))) {
+    char* our_token = (char*)malloc(our_token_length+1);
+    strncpy(our_token,token,our_token_length);
+    our_token[our_token_length]=0;
+    if(jwt_decode(&jwt,our_token,(const unsigned char*)jwt_sign_key,strlen(jwt_sign_key))) {
         free(jwt_sign_key);
+        free(our_token);
         return NULL;
     }
     int expiration = jwt_get_grant_int(jwt,EXPIRATION_GRANT);
@@ -107,6 +113,7 @@ user * extract_user(const char* token, size_t length) {
     const char* roles = jwt_get_grant(jwt, ROLES_GRANT);
     if(expiration < now || !login || !roles) {
         free(jwt_sign_key);
+        free(our_token);
         jwt_free(jwt);    
         return NULL;        
     }
@@ -119,6 +126,7 @@ user * extract_user(const char* token, size_t length) {
     u->enabled = true;
     u->password_hash = 0;
     
+    free(our_token);
     free(jwt_sign_key);
     jwt_free(jwt);    
     return u;

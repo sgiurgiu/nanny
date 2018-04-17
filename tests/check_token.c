@@ -55,7 +55,7 @@ START_TEST(test_token_read_bearer)
     char* header_val = (char*)malloc( header_length );
     strncpy(header_val,"Bearer ",7);
     strncpy(header_val+7,token_val,header_length-7);
-    user* u = extract_user(header_val,200);
+    user* u = extract_user(header_val,header_length);
     ck_assert_ptr_nonnull(u);
     ck_assert_str_eq(u->login,"login");
     ck_assert_int_eq(u->roles_count,1);
