@@ -249,7 +249,7 @@ int get_host_today_limit(const char* host) {
     }
     
     sqlite3_finalize(stmt);
-    return -1;
+    return 0;
 }
 
 int add_minutes_to_host_usage(const char* host, int minutes) {
@@ -343,7 +343,63 @@ names* get_hosts_with_status(host_status status) {
     return root;
 }
 
+host_usage * get_host_usage(const char* host, const char* since, const char* until) {
+    if(!host || !since) return NULL;    
+    sqlite3_stmt *stmt;
+    pthread_mutex_lock(&host_usage_mtx);
+    int ret = SQLITE_OK;
+    if(!until) {
+        ret = sqlite3_prepare_v2(db,"SELECT NAME,DAY,MINUTES FROM HOST_USAGE WHERE NAME=? "
+        "AND DATE(DAY) >= date(?)",-1,&stmt,0);
+    } else {
+        ret = sqlite3_prepare_v2(db,"SELECT NAME,DAY,MINUTES FROM HOST_USAGE WHERE NAME=? "
+        "AND DATE(DAY) >= date(?) AND DATE(DAY) <= DATE(?)",-1,&stmt,0);
+    }
+    if( ret != SQLITE_OK) {
+        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+        pthread_mutex_unlock(&host_usage_mtx);
+        return NULL;        
+    }
+    if(sqlite3_bind_text(stmt,1,host,-1,NULL) != SQLITE_OK) {
+        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        pthread_mutex_unlock(&host_usage_mtx);
+        return NULL;
+    }
+    if(sqlite3_bind_text(stmt,2,since,-1,NULL) != SQLITE_OK) {
+        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        pthread_mutex_unlock(&host_usage_mtx);
+        return NULL;
+    }
+    if(until && sqlite3_bind_text(stmt,3,until,-1,NULL) != SQLITE_OK) {
+        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        pthread_mutex_unlock(&host_usage_mtx);
+        return NULL;
+    }
+    host_usage* root = NULL;
+    host_usage* usage = NULL;
+    while(sqlite3_step(stmt) != SQLITE_DONE) {
+        host_usage* new_usage = (host_usage*)malloc(sizeof(host_usage));
+        memset(new_usage,0,sizeof(host_usage));            
+        if(root == NULL) {
+            usage = root = new_usage;
+        } else {
+            usage->next = new_usage;
+            usage = new_usage;
+        }
+        usage->name = get_string(stmt,0);
+        usage->day = get_string(stmt,1);
+        usage->minutes = sqlite3_column_int(stmt, 2);
+    }
+    sqlite3_finalize(stmt);
+    pthread_mutex_unlock(&host_usage_mtx);
+    return root;
+}
+
 int get_host_today_usage(const char* host) {
+    if(!host) return -1;
     sqlite3_stmt *stmt;
     pthread_mutex_lock(&host_usage_mtx);
     if(sqlite3_prepare_v2(db,"SELECT MINUTES FROM HOST_USAGE WHERE NAME=? AND DAY=date('now','localtime')",-1,&stmt,0) != SQLITE_OK) {
@@ -366,7 +422,7 @@ int get_host_today_usage(const char* host) {
     
     sqlite3_finalize(stmt);
     pthread_mutex_unlock(&host_usage_mtx);
-    return -1;
+    return 0;
 }
 
 int set_host_status(const char* host,host_status status) {

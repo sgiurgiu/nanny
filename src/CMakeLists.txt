@@ -35,6 +35,7 @@ set(NANNY_SRC
               domain.c
               token_provider.c
               admin_controller.c
+              security_utils.c
    )
    
 set(JWT_SRC ../external/jwt/libjwt/base64.c

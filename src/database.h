@@ -15,6 +15,9 @@ void close_database();
 int get_host_today_usage(const char* host);
 int add_minutes_to_host_usage(const char* host, int minutes);
 int get_host_today_limit(const char* host);
+
+host_usage* get_host_usage(const char* host,const char* since,const char* until);
+
 user* get_user(const char* username,size_t username_length);
 int add_user(const user* u);
 int add_roles(const char** roles,int count);

@@ -118,7 +118,7 @@ int start_http_server(const http_server_options*  const options) {
     if (mg_stat(s_http_server_opts.document_root, &st) != 0) {
         fprintf(stderr, "Cannot find %s directory, exiting\n", s_http_server_opts.document_root);
         return 1;
-    }
+    }    
     struct mg_mgr mgr;
     int result = 0;
     mg_mgr_init(&mgr, NULL);
@@ -136,6 +136,7 @@ int start_http_server(const http_server_options*  const options) {
     mg_register_http_endpoint(nc, "/api/block_status", handle_block_status);
     mg_register_http_endpoint(nc, "/api/login", handle_login);
     mg_register_http_endpoint(nc, "/api/admin/hosts", handle_admin_hosts);
+    mg_register_http_endpoint(nc, "/api/admin/host_history", handle_admin_host_history);
     
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);

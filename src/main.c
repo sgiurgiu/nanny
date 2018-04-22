@@ -78,7 +78,7 @@ static void initialize_database_users() {
         "ROLE_ADMIN",
         "ROLE_USER"
     };      
-    u->roles = roles;
+    u->roles = (char**) roles;
     u->roles_count = 2;    
     
     add_user(u);

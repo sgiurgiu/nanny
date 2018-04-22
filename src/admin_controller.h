@@ -3,7 +3,7 @@
 #include "mongoose.h"
 
 void handle_admin_hosts(struct mg_connection *nc, int ev, void *ev_data);
-
+void handle_admin_host_history(struct mg_connection *nc, int ev, void *ev_data);
 #endif
 
 

@@ -15,6 +15,15 @@ struct names {
 typedef struct names names;
 typedef enum host_status_t host_status;
 
+struct host_usage {
+    char* name;
+    char* day;
+    int minutes;
+    struct host_usage* next;
+};
+
+typedef struct host_usage host_usage;
+
 struct user {
     char* login;
     char* password_hash;
