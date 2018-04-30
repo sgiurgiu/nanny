@@ -1,5 +1,5 @@
 <template>
-  <div> 
+  <div id="other"> 
       Testy
   </div>
     
@@ -11,3 +11,9 @@ export default {
   }
 }
 </script>
+<style scoped>
+#other {
+  margin-top: 5rem;
+}
+
+</style>

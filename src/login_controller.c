@@ -22,6 +22,9 @@ void handle_login(struct mg_connection *nc, int ev, void *ev_data) {
     json_auto_t *login_data = json_loadb(hm->body.p,  hm->body.len, 0, &json_error);
     if(!login_data) {
         fprintf(stderr, "json error on line %d: %s\n", json_error.line, json_error.text);
+        mg_send_head(nc,400,12,"Content-Type: text/plain");
+        mg_printf(nc,"%s", "Bad Request");
+        nc->flags |= MG_F_SEND_AND_CLOSE; 
         return;
     }
     json_t *json_username = json_object_get(login_data,"username");

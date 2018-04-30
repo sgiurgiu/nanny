@@ -1,6 +1,7 @@
 var path = require('path')
 var webpack = require('webpack')
 const ExtractTextPlugin = require("extract-text-webpack-plugin")
+const { VueLoaderPlugin } = require('vue-loader')
 
 module.exports = {
   entry: './src/main.js',
@@ -22,7 +23,7 @@ module.exports = {
       },
       {
         test: /\.js$/,
-        loader: 'babel-loader',
+        use: 'babel-loader',
         exclude: /node_modules/
       },
       {
@@ -49,12 +50,22 @@ module.exports = {
   devServer: {
     port: 9000,
     historyApiFallback: true,
-    noInfo: true
+    noInfo: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        secure: false,
+        changeOrigin: true
+      }
+    }    
   },
   performance: {
     hints: false
   },
-  plugins: [new ExtractTextPlugin("main.css")],
+  plugins: [
+    new ExtractTextPlugin("main.css"),
+    new VueLoaderPlugin()
+  ],
   devtool: '#eval-source-map'
 }
 
@@ -76,5 +87,8 @@ if (process.env.NODE_ENV === 'production') {
     new webpack.LoaderOptionsPlugin({
       minimize: true
     })
-  ])
+  ]);
+  module.exports.mode = 'production';
+} else if (process.env.NODE_ENV === 'development') {
+  module.exports.mode = 'development';
 }

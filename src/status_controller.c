@@ -8,10 +8,10 @@ static void send_host_status(struct mg_connection *nc, const char* host) {
     int today_limit = get_host_today_limit(host);
     json_auto_t* jobj = json_object();
     
-    json_object_set_new(jobj,"Host", json_string(host));
-    json_object_set_new(jobj,"Status", json_integer(status));
-    json_object_set_new(jobj,"Usage", json_integer(usage_today));
-    json_object_set_new(jobj,"Limit", json_integer(today_limit));
+    json_object_set_new(jobj,"host", json_string(host));
+    json_object_set_new(jobj,"status", json_integer(status));
+    json_object_set_new(jobj,"usage", json_integer(usage_today));
+    json_object_set_new(jobj,"limit", json_integer(today_limit));
     
     char* content = json_dumps(jobj,JSON_COMPACT);
     mg_send_head(nc,200,strlen(content),"Content-Type: application/json");

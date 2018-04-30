@@ -1,8 +1,7 @@
 <template>
   <div id="app">      
-      <nanny-nav/>
-      <main-content/>
-      
+      <nanny-nav/> 
+      <router-view></router-view>
     <footer class="container">
       <p>&copy; Sergiu Giurgiu 2018</p>
     </footer>      
@@ -11,15 +10,11 @@
 
 <script>
 import NannyNav from './NannyNav.vue'
-import MainContent from './MainContent.vue'
-import Other from './Other.vue'
 
 export default {
   name: 'app'  ,
   components: {
-    MainContent,
-    NannyNav,
-    Other
+    NannyNav
   }
 }
 </script>

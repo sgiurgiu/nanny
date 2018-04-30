@@ -1,7 +1,7 @@
 <template>
 
  <b-navbar type="dark" variant="dark" fixed="top" toggleable>    
-    <b-navbar-brand href="/">Web Nanny</b-navbar-brand>
+    <b-navbar-brand to="/">Web Nanny</b-navbar-brand>
     <b-navbar-toggle target="nav_dropdown_collapse"></b-navbar-toggle>
     <b-collapse is-nav id="nav_dropdown_collapse">
       <b-navbar-nav :fill="true">
@@ -35,6 +35,7 @@
 </template>
 
 <script>
+
 export default {
   name: 'NannyNav' ,
   data() {
@@ -57,13 +58,16 @@ export default {
     },
     login: function(event) {
       event.preventDefault();
-      alert('login pressed');
-      this.handleSubmit();
+      this.$http.post("/api/login",{"username":this.username, "password":this.password}).then(result => {
+          console.log(JSON.stringify(result.data)); 
+          this.$router.push('/admin');
+          this.handleSubmit();
+      }, error => {
+          console.error(error);
+      });
     },
     handleSubmit: function () {
-      
-      
-      this.$refs.loginModal.hide()
+      this.$refs.loginModal.hide();
     }    
 
   }
