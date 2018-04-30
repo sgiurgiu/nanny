@@ -60,16 +60,15 @@ export default {
       event.preventDefault();
       this.$http.post("/api/login",{"username":this.username, "password":this.password}).then(result => {
           console.log(JSON.stringify(result.data)); 
+          const token = result.data.id;
+          this.$ls.set('login_token', token);
           this.$router.push('/admin');
-          this.handleSubmit();
+          this.$refs.loginModal.hide();
+
       }, error => {
           console.error(error);
       });
-    },
-    handleSubmit: function () {
-      this.$refs.loginModal.hide();
     }    
-
   }
 }
 </script>

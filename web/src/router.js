@@ -1,7 +1,7 @@
 import Vue from 'vue';
 import Router from 'vue-router';
 import MainContent from './MainContent.vue'
-import Other from './Other.vue'
+import Admin from './Admin.vue'
 Vue.use(Router)
 
 export default new Router({
@@ -13,8 +13,8 @@ export default new Router({
       },
       {
         path: '/admin',
-        name: 'Other',
-        component: Other
+        name: 'Admin',
+        component: Admin
       }      
     ]
   });

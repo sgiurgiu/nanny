@@ -422,7 +422,7 @@ int get_host_today_usage(const char* host) {
     
     sqlite3_finalize(stmt);
     pthread_mutex_unlock(&host_usage_mtx);
-    return 0;
+    return -1;
 }
 
 int set_host_status(const char* host,host_status status) {
