@@ -209,6 +209,26 @@ err:
     free_user(u);
     return NULL;
 }
+void add_minutes_to_host_limit(const char* host, int minutes) {
+    sqlite3_stmt *stmt;
+    
+    if(sqlite3_prepare_v2(db,"INSERT INTO HOST_ALLOWANCE_EXT (NAME,DAY,MINUTES) VALUES(?,date('now','localtime'),?)",-1,&stmt,0) != SQLITE_OK) {
+        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+        return;
+    }
+    if(sqlite3_bind_text(stmt,1,host,-1,NULL) != SQLITE_OK) {
+        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        return;
+    }
+    if(sqlite3_bind_int(stmt,2,minutes) != SQLITE_OK) {
+        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        return;
+    }    
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+}
 
 static int get_host_today_limit_ext(const char* host) {
     sqlite3_stmt *stmt;

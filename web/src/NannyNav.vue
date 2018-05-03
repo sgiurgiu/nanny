@@ -54,7 +54,7 @@ export default {
       this.$refs.username.focus();
     },
     adminPage: function(event) {
-       this.$refs.loginModal.show();
+      this.$http.get('/api/admin').then(result => {this.$router.push('/admin');},error => {this.$refs.loginModal.show();});       
     },
     login: function(event) {
       event.preventDefault();

@@ -135,8 +135,10 @@ int start_http_server(const http_server_options*  const options) {
     mg_register_http_endpoint(nc, "/api/allow", handle_allow);
     mg_register_http_endpoint(nc, "/api/block_status", handle_block_status);
     mg_register_http_endpoint(nc, "/api/login", handle_login);
+    mg_register_http_endpoint(nc, "/api/admin", handle_is_admin);
     mg_register_http_endpoint(nc, "/api/admin/hosts", handle_admin_hosts);
     mg_register_http_endpoint(nc, "/api/admin/host_history", handle_admin_host_history);
+    mg_register_http_endpoint(nc, "/api/admin/add_host_time", handle_admin_add_host_time);
     
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);

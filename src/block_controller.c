@@ -2,8 +2,10 @@
 #include "database.h"
 #include "packet_filter.h"
 #include "http_utils.h"
+#include "domain.h"
 
 #include <arpa/inet.h>
+#include <jansson.h>
 
 struct name_block_data {
     struct mg_connection *nc;
@@ -14,9 +16,11 @@ struct name_block_data {
 static void send_block_host_result(struct mg_connection *nc, struct in_addr address, const char* host) {
     block_address(address);
     set_host_status(host,HOST_BLOCKED);
-    mg_send_head(nc,200,2,"Content-Type: text/plain");
-    mg_printf(nc,"%s", "OK");
+    char* content = json_host_status(host);
+    mg_send_head(nc,200,strlen(content),"Content-Type: application/json");
+    mg_printf(nc,"%s", content);
     nc->flags |= MG_F_SEND_AND_CLOSE;
+    free(content);
 }
 
 static void block_name_resolve_handler_http(struct mg_dns_message *dns_message,void *user_data, enum mg_resolve_err err) {
@@ -66,13 +70,12 @@ void handle_block(struct mg_connection *nc, int ev, void *ev_data) {
     struct http_message *hm = (struct http_message *) ev_data;
     if(!ensure_post_request(nc,ev,ev_data)) return;
     
-    char host[256] = {0};    
     char* local_nameserver = get_configuration_value("LOCAL_NAMESERVER");
     struct mg_resolve_async_opts opts;
     memset(&opts, 0, sizeof(opts));
     opts.nameserver=local_nameserver;        
     
-    if(mg_get_http_var(&hm->body,"Host",host,sizeof(host)-1) <= 0) {      
+    if(hm->body.len <= 0) {      
         //if we got called without any payload as to what host to block, block the caller
         char reverse_name[INET_ADDRSTRLEN+15];//.in-addr.arpa
         memset(&reverse_name, 0, sizeof(reverse_name));
@@ -81,11 +84,30 @@ void handle_block(struct mg_connection *nc, int ev, void *ev_data) {
         printf("Querying %s\n",reverse_name);
         mg_resolve_async_opt(nc->mgr,reverse_name,MG_DNS_PTR_RECORD,block_reverse_dns_resolve_handler,nc,opts);
     } else {
+        
+        json_error_t json_error;
+        json_auto_t *host_data = json_loadb(hm->body.p,  hm->body.len, 0, &json_error);
+        if(!host_data) {
+            fprintf(stderr, "json error on line %d: %s\n", json_error.line, json_error.text);
+            mg_send_head(nc,400,12,"Content-Type: text/plain");
+            mg_printf(nc,"%s", "Bad Request");
+            nc->flags |= MG_F_SEND_AND_CLOSE; 
+            return;
+        }
+        json_t *json_host = json_object_get(host_data,"host");
+        if(!json_is_string(json_host)) {
+            mg_send_head(nc,400,12,"Content-Type: text/plain");
+            mg_printf(nc,"%s", "Bad Request");
+            nc->flags |= MG_F_SEND_AND_CLOSE; 
+            return;        
+        }
+        size_t host_length = json_string_length(json_host);
+        const char* host = json_string_value(json_host);            
         struct name_block_data *block_data = (struct name_block_data*) malloc(sizeof(struct name_block_data));
         block_data->nc = nc;
-        block_data->host = (char*) malloc(sizeof(host));
-        memset(block_data->host,0,sizeof(host));
-        strncpy(block_data->host,host,sizeof(host));
+        block_data->host = (char*) malloc(host_length);
+        memset(block_data->host,0,host_length);
+        strncpy(block_data->host,host,host_length);
         mg_resolve_async_opt(nc->mgr,host,MG_DNS_A_RECORD,block_name_resolve_handler_http,block_data,opts);
     }
     free(local_nameserver);

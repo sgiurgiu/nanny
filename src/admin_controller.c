@@ -3,6 +3,7 @@
 #include "database.h"
 #include "security_utils.h"
 #include "http_utils.h"
+#include "domain.h"
 
 #include <string.h>
 #include <jansson.h>
@@ -69,6 +70,9 @@ void handle_admin_hosts(struct mg_connection* nc, int ev, void* ev_data) {
         host_status status = get_host_status(name->name);
         int limit = get_host_today_limit(name->name);
         int usage = get_host_today_usage(name->name);
+        if(limit > 0 && usage < 0) {
+            usage = 0;
+        }        
         
         json_t* jobj = json_object();
         json_object_set_new(jobj,"host", json_string(name->name));
@@ -85,6 +89,66 @@ void handle_admin_hosts(struct mg_connection* nc, int ev, void* ev_data) {
     
     
     char* content = json_dumps(jarray,JSON_COMPACT);
+    mg_send_head(nc,200,strlen(content),"Content-Type: application/json");
+    mg_printf(nc,"%s", content);
+    nc->flags |= MG_F_SEND_AND_CLOSE;
+    free(content);
+}
+void handle_is_admin(struct mg_connection *nc, int ev, void *ev_data) {
+    if(ev != MG_EV_HTTP_REQUEST) {
+        nc->flags |= MG_F_CLOSE_IMMEDIATELY;
+        return;
+    }    
+    if(!ensure_get_request(nc,ev,ev_data)) return;
+    
+    struct http_message *hm = (struct http_message *) ev_data;
+    if(!is_admin(nc,hm) ) {
+        return;
+    }
+    mg_send_head(nc,200,2,"Content-Type: application/json");
+    mg_printf(nc,"%s", "OK");
+    nc->flags |= MG_F_SEND_AND_CLOSE;    
+}
+
+void handle_admin_add_host_time(struct mg_connection *nc, int ev, void *ev_data) {
+    if(ev != MG_EV_HTTP_REQUEST) {
+        nc->flags |= MG_F_CLOSE_IMMEDIATELY;
+        return;
+    }    
+    if(!ensure_post_request(nc,ev,ev_data)) return;
+    
+    struct http_message *hm = (struct http_message *) ev_data;
+    if(!is_admin(nc,hm) ) {
+        return;
+    }
+    
+    json_error_t json_error;
+    json_auto_t *host_data = json_loadb(hm->body.p,  hm->body.len, 0, &json_error);
+    if(!host_data) {
+        fprintf(stderr, "json error on line %d: %s\n", json_error.line, json_error.text);
+        mg_send_head(nc,400,12,"Content-Type: text/plain");
+        mg_printf(nc,"%s", "Bad Request");
+        nc->flags |= MG_F_SEND_AND_CLOSE; 
+        return;
+    }
+    json_t *json_host = json_object_get(host_data,"host");
+    json_t *json_minutes = json_object_get(host_data,"minutes");
+    if(!json_is_string(json_host) || (!json_is_integer(json_minutes) && !json_is_string(json_minutes))) {
+        mg_send_head(nc,400,12,"Content-Type: text/plain");
+        mg_printf(nc,"%s", "Bad Request");
+        nc->flags |= MG_F_SEND_AND_CLOSE; 
+        return;        
+    }
+    const char* host = json_string_value(json_host);    
+    int minutes = 0;
+    if(json_is_integer(json_minutes)) {
+        minutes = json_integer_value(json_minutes);
+    } else {
+        minutes = atoi(json_string_value(json_minutes));
+    }
+    add_minutes_to_host_limit(host,minutes);
+    
+    char* content = json_host_status(host);
     mg_send_head(nc,200,strlen(content),"Content-Type: application/json");
     mg_printf(nc,"%s", content);
     nc->flags |= MG_F_SEND_AND_CLOSE;

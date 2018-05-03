@@ -33,6 +33,13 @@ module.exports = {
           use: "css-loader"
         })
       },
+      {test: /\.scss?$/, loaders: ['style-loader', 'css-loader', 'sass-loader']},
+      //{test: /\.css?$/, loaders: ['style-loader', 'css-loader', 'sass-loader']},
+      {test: /\.svg(\?v=\d+\.\d+\.\d+)?$/, loader: 'file-loader?mimetype=image/svg+xml'},
+      {test: /\.woff(\?v=\d+\.\d+\.\d+)?$/, loader: "file-loader?mimetype=application/font-woff"},
+      {test: /\.woff2(\?v=\d+\.\d+\.\d+)?$/, loader: "file-loader?mimetype=application/font-woff"},
+      {test: /\.ttf(\?v=\d+\.\d+\.\d+)?$/, loader: "file-loader?mimetype=application/octet-stream"},
+      {test: /\.eot(\?v=\d+\.\d+\.\d+)?$/, loader: "file-loader"},      
       {
         test: /\.(png|jpg|gif|svg)$/,
         loader: 'file-loader',

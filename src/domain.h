@@ -34,6 +34,7 @@ struct user {
 typedef struct user user;
 
 void free_user(user* u);
+char* json_host_status(const char* host);
 
 #endif
 

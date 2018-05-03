@@ -14,6 +14,7 @@ int set_host_status(const char* host,host_status status);
 void close_database();
 int get_host_today_usage(const char* host);
 int add_minutes_to_host_usage(const char* host, int minutes);
+void add_minutes_to_host_limit(const char* host, int minutes);
 int get_host_today_limit(const char* host);
 
 host_usage* get_host_usage(const char* host,const char* since,const char* until);

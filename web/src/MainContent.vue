@@ -14,10 +14,10 @@ export default {
   name: "MainContent",
   data() {
     return {
-      status_message: "",
-      time_message : "",
+      status_message: "Internet status",
+      time_message : "Time N/A",
       host_status: -1,
-      button_text:"",
+      button_text:"N/A",
       button_disabled:false
     }
   },

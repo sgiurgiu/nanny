@@ -1,19 +1,10 @@
 #include "status_controller.h"
 #include "database.h"
+#include "domain.h"
 #include <jansson.h>
 
 static void send_host_status(struct mg_connection *nc, const char* host) {
-    host_status status = get_host_status(host);
-    int usage_today = get_host_today_usage(host);
-    int today_limit = get_host_today_limit(host);
-    json_auto_t* jobj = json_object();
-    
-    json_object_set_new(jobj,"host", json_string(host));
-    json_object_set_new(jobj,"status", json_integer(status));
-    json_object_set_new(jobj,"usage", json_integer(usage_today));
-    json_object_set_new(jobj,"limit", json_integer(today_limit));
-    
-    char* content = json_dumps(jobj,JSON_COMPACT);
+    char* content = json_host_status(host);
     mg_send_head(nc,200,strlen(content),"Content-Type: application/json");
     mg_printf(nc,"%s", content);
     nc->flags |= MG_F_SEND_AND_CLOSE;
