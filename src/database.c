@@ -329,7 +329,7 @@ int add_minutes_to_host_usage(const char* host, int minutes) {
 
 names* get_hosts_with_status(host_status status) {
     sqlite3_stmt *stmt;
-//     pthread_mutex_lock(&host_status_mtx);
+    pthread_mutex_lock(&host_status_mtx);
     if(sqlite3_prepare_v2(db,"SELECT DISTINCT NAME FROM HOST_STATUS WHERE STATUS=?",-1,&stmt,0) != SQLITE_OK) {
         fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
         pthread_mutex_unlock(&host_status_mtx);

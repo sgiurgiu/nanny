@@ -18,7 +18,8 @@ export default {
       time_message : "Time N/A",
       host_status: -1,
       button_text:"N/A",
-      button_disabled:false
+      button_disabled:false,
+      timeout:null
     }
   },
   methods : {
@@ -67,15 +68,15 @@ export default {
   },
   mounted() {
     var self = this;
+    this.displayStatus();
+    this.timeout =  setInterval(() => {
+           this.displayStatus();
+    },5000);
     
-    var refreshFn = function () {
-        self.displayStatus();
-        setTimeout(() => {
-           refreshFn();
-        },5000);
-    };
     
-    this.$nextTick(refreshFn);
+  },
+  beforeDestroy() {
+     clearInterval(this.timeout);    
   }  
 }
 </script>
