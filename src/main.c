@@ -124,8 +124,8 @@ int main(int argc, char **argv) {
             perror("cannot open logfile"); 
             exit (EXIT_FAILURE); 
         }         
-        stderr = newout;
-        setbuf(stderr, NULL);
+        //stderr = newout;
+        setbuf(newout, NULL);
     }
     
     if(initialize_database(db_file)) {
