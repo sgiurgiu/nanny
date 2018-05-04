@@ -17,6 +17,7 @@
 #include <stdbool.h>
 
 #include "database.h"
+#include <sclog4c/sclog4c.h>
 
 static int pfctl_ltoprefix(in_addr_t mask)
 {
@@ -50,7 +51,7 @@ static int update_table(struct in_addr address,unsigned long request, bool kill_
 {
 	char* pf_table_name = get_configuration_value("PF_TABLE_NAME");
 	if(!pf_table_name) {
-		fprintf(stderr, "PF_TABLE_NAME option is not defined\n");
+		logm(SL4C_ERROR, "PF_TABLE_NAME option is not defined\n");
 	        return 1;
 	}
     
@@ -98,7 +99,7 @@ static bool is_add_to_block()
 {
 	char* add_to_block= get_configuration_value("PF_ADD_BLOCK");
     if(!add_to_block) {
-		fprintf(stderr, "PF_ADD_BLOCK option is not defined\n");
+		logm(SL4C_ERROR, "PF_ADD_BLOCK option is not defined\n");
         return true;
 	}
 	bool add = strncmp("true",add_to_block,4) == 0 || strncmp("T",add_to_block,1)==0 || strncmp("1",add_to_block,1)==0;

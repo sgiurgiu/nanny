@@ -4,3 +4,6 @@
 [submodule "external/libbcrypt"]
 	path = external/libbcrypt
 	url = https://github.com/rg3/libbcrypt.git
+[submodule "external/sclog4c"]
+	path = external/sclog4c
+	url = https://github.com/christianhujer/sclog4c.git

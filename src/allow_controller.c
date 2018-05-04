@@ -2,16 +2,20 @@
 #include "database.h"
 #include "packet_filter.h"
 #include "http_utils.h"
+#include <sclog4c/sclog4c.h>
 
 static void send_allow_host_result(struct mg_connection *nc, struct in_addr address, const char* host) {
     host_status status = get_host_status(host);
+    logm(SL4C_DEBUG, "Got status %d for host %s, want to allow access",status,host);    
     if( (status == HOST_BLOCKED) && 
-        (get_host_today_usage(host) < get_host_today_limit(host)) ) {
+        (get_host_today_usage(host) < get_host_today_limit(host)) ) {        
         unblock_address(address);
         set_host_status(host,HOST_ALLOWED);
+        logm(SL4C_INFO, "Unblocked access for host %s",host);    
         mg_send_head(nc,200,2,"Content-Type: text/plain");
         mg_printf(nc,"%s", "OK");
     } else {
+        logm(SL4C_INFO, "Host %s cannot be unblocked since usage > limit (probably): %d, %d",host,get_host_today_usage(host),get_host_today_limit(host));    
         mg_send_head(nc,403,10,"Content-Type: text/plain");
         mg_printf(nc,"%s", "Forbidden");
     }
@@ -54,7 +58,7 @@ void handle_allow(struct mg_connection *nc, int ev, void *ev_data) {
     memset(&reverse_name, 0, sizeof(reverse_name));
     const unsigned char *p = (const unsigned char *) (&nc->sa.sin.sin_addr.s_addr);
     snprintf(reverse_name,INET_ADDRSTRLEN+15,"%d.%d.%d.%d.in-addr.arpa",p[3],p[2],p[1],p[0]);
-    printf("Querying %s\n",reverse_name);
+    logm(SL4C_DEBUG, "Querying for host %s for allowing access",reverse_name);    
     mg_resolve_async_opt(nc->mgr,reverse_name,MG_DNS_PTR_RECORD,allow_reverse_dns_resolve_handler,nc,opts);
     free(local_nameserver);
 }

@@ -8,6 +8,7 @@
 #include "login_controller.h"
 #include "admin_controller.h"
 
+#include <sclog4c/sclog4c.h>
 #include <stdbool.h>
 
 static struct mg_serve_http_opts s_http_server_opts;
@@ -43,7 +44,7 @@ static void block_name_resolve_handler(struct mg_dns_message *dns_message,void *
             if(record.kind == MG_DNS_ANSWER) {
                 struct in_addr ina;
                 if(!mg_dns_parse_record_data(dns_message,&record,&ina,sizeof(struct in_addr))) {
-                    //printf("found ip: %s\n",inet_ntoa(ina));
+                    logm(SL4C_DEBUG, "found ip %s",inet_ntoa(ina)); 
                     block_address(ina);
                     set_host_status(name->name,HOST_BLOCKED);
                 }
@@ -61,7 +62,7 @@ static void block_everyone(struct mg_mgr *mgr) {
         struct mg_resolve_async_opts opts;
         memset(&opts, 0, sizeof(opts));        
         opts.nameserver=local_nameserver;
-        //printf("Querying %s\n",name->name);
+        logm(SL4C_DEBUG, "blocking %s",name->name); 
         names* next = name->next;
         mg_resolve_async_opt(mgr,name->name,MG_DNS_A_RECORD,block_name_resolve_handler,name,opts);
         name = next;
@@ -87,7 +88,7 @@ static void block_everyone(struct mg_mgr *mgr) {
                 mg_resolve_async_opt(mgr,host,MG_DNS_A_RECORD,block_name_resolve_handler,name,opts);
                 name=next;
             } else {
-                printf("add minutes to host usage\n");
+                logm(SL4C_DEBUG, "add minutes to host usage"); 
                 add_minutes_to_host_usage(host,1);
                 names* tmp = name;
                 name=name->next;
@@ -101,7 +102,8 @@ static void block_everyone(struct mg_mgr *mgr) {
          wait_time.tv_nsec = 0;
          pthread_mutex_lock(&wait_monitoring_mutex);
          while(!monitoring_thread_done) {
-            printf("waiting for time to pass\n");
+            logm(SL4C_DEBUG, "wait for time to pass"); 
+            
             int ret = pthread_cond_timedwait(&wait_monitoring_cv,&wait_monitoring_mutex,&wait_time);            
             if(ret == ETIMEDOUT || difftime(time(NULL),wait_time.tv_sec) >= 60) break;
          }
@@ -116,7 +118,7 @@ int start_http_server(const http_server_options*  const options) {
     s_http_server_opts.document_root = options->server_root;
     cs_stat_t st;
     if (mg_stat(s_http_server_opts.document_root, &st) != 0) {
-        fprintf(stderr, "Cannot find %s directory, exiting\n", s_http_server_opts.document_root);
+        logm(SL4C_ERROR, "Cannot find %s directory, exiting", s_http_server_opts.document_root);  
         return 1;
     }    
     struct mg_mgr mgr;
@@ -125,7 +127,7 @@ int start_http_server(const http_server_options*  const options) {
     
     struct mg_connection *nc = mg_bind(&mgr, options->address, ev_handler);
     if( !nc) {
-        fprintf(stderr, "Cannot bind connection on address %s\n",options->address);
+        logm(SL4C_ERROR, "Cannot bind connection on address %s",options->address);          
         result = 1;
         goto done;
     }
@@ -148,7 +150,7 @@ int start_http_server(const http_server_options*  const options) {
     pthread_t monitoring_thread;
     pthread_create(&monitoring_thread,NULL,monitoring_thread_start,&mgr);
     
-    printf("Starting server on address %s\n", options->address);
+    logm(SL4C_INFO, "Starting server on address %s",options->address);    
     while (s_sig_num == 0) {
         mg_mgr_poll(&mgr, 1000);
     }

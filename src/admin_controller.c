@@ -7,6 +7,7 @@
 
 #include <string.h>
 #include <jansson.h>
+#include <sclog4c/sclog4c.h>
 
 void handle_admin_host_history(struct mg_connection *nc, int ev, void *ev_data) {
     if(ev != MG_EV_HTTP_REQUEST) {
@@ -30,6 +31,7 @@ void handle_admin_host_history(struct mg_connection *nc, int ev, void *ev_data) 
     }
     int end_date_length = mg_get_http_var(&hm->query_string,"end_date",end_date,sizeof(end_date)-1);
     json_auto_t* jarray = json_array();
+    logm(SL4C_DEBUG, "ADMIN: Getting host history for host %s from date %s until date %s",host,date,(end_date_length <= 0 ? "" : end_date));    
     host_usage* usage = get_host_usage(host,date,end_date_length <= 0 ? NULL : end_date);
     while(usage) {
         json_t* jobj = json_object();
@@ -64,7 +66,7 @@ void handle_admin_hosts(struct mg_connection* nc, int ev, void* ev_data) {
         return;
     }
     json_auto_t* jarray = json_array();
-    
+    logm(SL4C_DEBUG, "ADMIN: Getting hosts list");    
     names* name = get_host_names();
     while(name) {        
         host_status status = get_host_status(name->name);
@@ -100,9 +102,10 @@ void handle_is_admin(struct mg_connection *nc, int ev, void *ev_data) {
         return;
     }    
     if(!ensure_get_request(nc,ev,ev_data)) return;
-    
+    logm(SL4C_DEBUG, "ADMIN: Is Admin?");    
     struct http_message *hm = (struct http_message *) ev_data;
     if(!is_admin(nc,hm) ) {
+        logm(SL4C_DEBUG, "ADMIN: Is Admin? NAH");    
         return;
     }
     mg_send_head(nc,200,2,"Content-Type: application/json");
@@ -146,6 +149,7 @@ void handle_admin_add_host_time(struct mg_connection *nc, int ev, void *ev_data)
     } else {
         minutes = atoi(json_string_value(json_minutes));
     }
+    logm(SL4C_DEBUG, "ADMIN: Add host %s minutes %d",host,minutes);    
     add_minutes_to_host_limit(host,minutes);
     
     char* content = json_host_status(host);

@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <bcrypt.h>
+#include <sclog4c/sclog4c.h>
 
 #include "mongoose.h"
 #include "http_server.h"
@@ -26,25 +27,25 @@ static void print_usage(char* name) {
 static int check_configuration() {
     char* pf_table_name = get_configuration_value("PF_TABLE_NAME");
     if(!pf_table_name) {
-        fprintf(stderr, "PF_TABLE_NAME option is not defined\n");
+        logm(SL4C_ERROR, "PF_TABLE_NAME option is not defined");        
         return 1;
     }
     free(pf_table_name);
     char* local_nameserver = get_configuration_value("LOCAL_NAMESERVER");
     if(!local_nameserver) {
-        fprintf(stderr, "LOCAL_NAMESERVER option is not defined\n");
+        logm(SL4C_ERROR, "LOCAL_NAMESERVER option is not defined");        
         return 1;
     }
     free(local_nameserver);
     char* local_domain = get_configuration_value("LOCAL_DOMAIN");
     if(!local_domain) {
-        fprintf(stderr, "LOCAL_DOMAIN option is not defined\n");
+        logm(SL4C_ERROR, "LOCAL_DOMAIN option is not defined");        
         return 1;
     }
     free(local_domain);
     char* jwt_sign_key = get_configuration_value("JWT_SIGN_KEY");
     if(!jwt_sign_key) {
-        fprintf(stderr, "JWT_SIGN_KEY option is not defined\n");
+        logm(SL4C_ERROR, "JWT_SIGN_KEY option is not defined");        
         return 1;
     }
     free(jwt_sign_key);    
@@ -88,11 +89,13 @@ static void initialize_database_users() {
 
 int main(int argc, char **argv) {
     int i;
-
+    sclog4c_level = SL4C_ALL;
     http_server_options options;
     options.server_root = ".";
     options.address = "127.0.0.1:8000";
     int daemonize = 0;
+    char* log_file = NULL;
+    
     
     for (i = 1; i < argc; i++) {
         if( strncmp(argv[i], "-h", 2) == 0 || 
@@ -107,7 +110,22 @@ int main(int argc, char **argv) {
             db_file = argv[++i];
         } else if(strncmp(argv[i], "-D", 2) == 0) {
             daemonize = 1;
+        } else if ((strncmp(argv[i], "-l", 2) == 0 && i + 1 < argc) || (strncmp(argv[i], "--log", 5) == 0 && i + 1 < argc)) {
+            log_file = argv[++i];
         }
+    }
+    logm(SL4C_INFO, "Starting NetNanny on address: %s, server root: %s, database: %s ",options.address,options.server_root,db_file);
+    
+    FILE* newout = NULL;
+    if(log_file) {
+        logm(SL4C_INFO, "Redirecting output to logfile %s",log_file);
+        newout = freopen(log_file, "a", stderr);
+        if (!newout) { 
+            perror("cannot open logfile"); 
+            exit (EXIT_FAILURE); 
+        }         
+        stderr = newout;
+        setbuf(stderr, NULL);
     }
     
     if(initialize_database(db_file)) {
@@ -122,7 +140,7 @@ int main(int argc, char **argv) {
     
     if(daemonize) {
         if(daemon(0,1)) {
-            fprintf(stderr,"Cannot daemonize\n");
+            logm(SL4C_ERROR, "Cannot daemonize");  
         }
     }
     
@@ -132,6 +150,9 @@ int main(int argc, char **argv) {
     
 done:
     close_database();
+    if (newout) { 
+        fclose(newout);
+    }
     
     return 0;
 }

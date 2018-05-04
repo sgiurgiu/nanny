@@ -2,9 +2,11 @@
 #include "database.h"
 #include "domain.h"
 #include <jansson.h>
+#include <sclog4c/sclog4c.h>
 
 static void send_host_status(struct mg_connection *nc, const char* host) {
     char* content = json_host_status(host);
+    logm(SL4C_DEBUG, "Host %s has status %s",host,content);
     mg_send_head(nc,200,strlen(content),"Content-Type: application/json");
     mg_printf(nc,"%s", content);
     nc->flags |= MG_F_SEND_AND_CLOSE;
@@ -56,7 +58,7 @@ void handle_block_status(struct mg_connection *nc, int ev, void *ev_data) {
             memset(&reverse_name, 0, sizeof(reverse_name));
             const unsigned char *p = (const unsigned char *) (&nc->sa.sin.sin_addr.s_addr);
             snprintf(reverse_name,INET_ADDRSTRLEN+15,"%d.%d.%d.%d.in-addr.arpa",p[3],p[2],p[1],p[0]);
-            printf("Querying %s\n",reverse_name);
+            logm(SL4C_DEBUG, "Querying for host %s for block status ",reverse_name);                
             mg_resolve_async_opt(nc->mgr,reverse_name,MG_DNS_PTR_RECORD,ip_resolve_handler,nc,opts);
             free(local_nameserver);
         } else {

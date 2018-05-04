@@ -6,6 +6,7 @@
 
 #include <arpa/inet.h>
 #include <jansson.h>
+#include <sclog4c/sclog4c.h>
 
 struct name_block_data {
     struct mg_connection *nc;
@@ -14,6 +15,7 @@ struct name_block_data {
 
 
 static void send_block_host_result(struct mg_connection *nc, struct in_addr address, const char* host) {
+    logm(SL4C_INFO, "Blocking host %s ",host);    
     block_address(address);
     set_host_status(host,HOST_BLOCKED);
     char* content = json_host_status(host);
@@ -81,7 +83,7 @@ void handle_block(struct mg_connection *nc, int ev, void *ev_data) {
         memset(&reverse_name, 0, sizeof(reverse_name));
         const unsigned char *p = (const unsigned char *) (&nc->sa.sin.sin_addr.s_addr);
         snprintf(reverse_name,INET_ADDRSTRLEN+15,"%d.%d.%d.%d.in-addr.arpa",p[3],p[2],p[1],p[0]);
-        printf("Querying %s\n",reverse_name);
+        logm(SL4C_DEBUG, "Querying for host %s for blocking access",reverse_name);            
         mg_resolve_async_opt(nc->mgr,reverse_name,MG_DNS_PTR_RECORD,block_reverse_dns_resolve_handler,nc,opts);
     } else {
         
@@ -102,7 +104,8 @@ void handle_block(struct mg_connection *nc, int ev, void *ev_data) {
             return;        
         }
         size_t host_length = json_string_length(json_host);
-        const char* host = json_string_value(json_host);            
+        const char* host = json_string_value(json_host);      
+        logm(SL4C_DEBUG, "Blocking host %s",host);    
         struct name_block_data *block_data = (struct name_block_data*) malloc(sizeof(struct name_block_data));
         block_data->nc = nc;
         block_data->host = (char*) malloc(host_length);

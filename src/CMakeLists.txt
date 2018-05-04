@@ -12,16 +12,16 @@ find_path(PFVAR_INCLUDE_DIR net/pfvar.h
 message(STATUS "Net/pfvar.h detected ${PFVAR_INCLUDE_DIR}")
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
-    add_definitions(-DNANNY_DEBUG -DCS_ENABLE_DEBUG=1)
+    add_definitions(-DNANNY_DEBUG -DCS_ENABLE_DEBUG=0)
 endif(CMAKE_BUILD_TYPE MATCHES Debug)
 
 include_directories(${JANSSON_INCLUDE_DIRS})
 include_directories(../external/jwt/include ${OPENSSL_INCLUDE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(../external/libbcrypt/)
+include_directories(../external/sclog4c/include/)
 
-set(NANNY_MAIN_SRC main.c
- )
+set(NANNY_MAIN_SRC main.c)
 set(NANNY_SRC 
               http_server.c
               database.c
@@ -38,6 +38,8 @@ set(NANNY_SRC
               security_utils.c
    )
    
+set(SCLOG4C_SRC ../external/sclog4c/src/sclog4c.c)
+
 set(JWT_SRC ../external/jwt/libjwt/base64.c
     ../external/jwt/libjwt/jwt.c
     ../external/jwt/libjwt/jwt-openssl.c
@@ -65,7 +67,7 @@ endif(PFVAR_INCLUDE_DIR MATCHES PFVAR_INCLUDE_DIR-NOTFOUND)
 set(EXECUTABLE_NAME "nanny")
 set(LIB_NAME "nanny_lib")
 
-add_library(${LIB_NAME} STATIC ${NANNY_SRC} ${JWT_SRC} ${BCRYPT_SRC})
+add_library(${LIB_NAME} STATIC ${NANNY_SRC} ${JWT_SRC} ${BCRYPT_SRC} ${SCLOG4C_SRC})
 target_link_libraries(${LIB_NAME} ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(${LIB_NAME} ${JANSSON_LIBRARIES} ${OPENSSL_CRYPTO_LIBRARY})
 target_link_libraries(${LIB_NAME} ${JWT_LIBRARIES})

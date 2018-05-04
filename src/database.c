@@ -5,13 +5,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <sclog4c/sclog4c.h>
 
 static sqlite3 *db = NULL;
 pthread_mutex_t host_usage_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t host_status_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 int initialize_database(const char* path) {
-    #define ERRCHECK(msg) {if (rc != SQLITE_OK) {fprintf(stderr, "%s: %s\n",msg, sqlite3_errmsg(db));  sqlite3_close(db); return rc;}}   
+    #define ERRCHECK(msg) {if (rc != SQLITE_OK) {logm(SL4C_ERROR, "%s: %s",msg, sqlite3_errmsg(db));  sqlite3_close(db); return rc;}}   
     
     int rc = sqlite3_open(path,&db);
     ERRCHECK("Can't open database");    
@@ -48,14 +49,14 @@ static char* get_string(sqlite3_stmt *stmt, int col) {
 int add_roles(const char** roles,int count) {
     sqlite3_stmt *stmt;
     if(sqlite3_prepare_v2(db,"INSERT INTO ROLES (ROLE_NAME) VALUES (?)",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
         return 1;
     }
     
     for(int i=0;i<count;i++) {
         sqlite3_reset(stmt);
         if(sqlite3_bind_text(stmt,1,roles[i],-1,NULL) != SQLITE_OK) {
-            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
             sqlite3_finalize(stmt);
             return 1;
         }        
@@ -68,7 +69,7 @@ int add_roles(const char** roles,int count) {
 int get_roles_count() {
     sqlite3_stmt *stmt;
     if(sqlite3_prepare_v2(db,"SELECT COUNT(*) FROM ROLES",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
         return -1;
     }
     
@@ -84,21 +85,21 @@ int get_roles_count() {
 int add_user(const user* u) {
     sqlite3_stmt *stmt;
     if(sqlite3_prepare_v2(db,"INSERT INTO USERS (LOGIN,PASSWORD_HASH,ENABLED) VALUES (?,?,?)",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
         return 1;
     }
     if(sqlite3_bind_text(stmt,1,u->login,-1,NULL) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return 1;
     }
     if(sqlite3_bind_text(stmt,2,u->password_hash,-1,NULL) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);        
         return 1;
     }
     if(sqlite3_bind_int(stmt,3,u->enabled) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return 1;
     }    
@@ -107,18 +108,18 @@ int add_user(const user* u) {
     sqlite3_int64 last_id = sqlite3_last_insert_rowid(db);
     
     if(sqlite3_prepare_v2(db,"INSERT INTO USER_ROLES (USER_ID,ROLE_ID) VALUES (?,(SELECT ID FROM ROLES WHERE ROLE_NAME=?))",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
         return 1;
     }
     if(sqlite3_bind_int64(stmt,1,last_id) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return 1;
     }        
     for(int i=0;i<u->roles_count;i++) {
         sqlite3_reset(stmt);
         if(sqlite3_bind_text(stmt,2,u->roles[i],-1,NULL) != SQLITE_OK) {
-            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
             sqlite3_finalize(stmt);
             return 1;
         }        
@@ -131,7 +132,7 @@ int add_user(const user* u) {
 int get_users_count() {
     sqlite3_stmt *stmt;
     if(sqlite3_prepare_v2(db,"SELECT COUNT(*) FROM USERS",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
         return -1;
     }
     
@@ -148,11 +149,11 @@ user * get_user(const char* username, size_t username_length) {
     sqlite3_stmt *stmt;
     
     if(sqlite3_prepare_v2(db,"SELECT ID,LOGIN,PASSWORD_HASH,ENABLED FROM USERS WHERE LOGIN=?",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));
         return NULL;
     }
     if(sqlite3_bind_text(stmt,1,username,username_length,NULL) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return NULL;
     }
@@ -171,11 +172,11 @@ user * get_user(const char* username, size_t username_length) {
     sqlite3_finalize(stmt);
     
     if(sqlite3_prepare_v2(db,"SELECT COUNT(R.ROLE_NAME) FROM ROLES R,USER_ROLES U WHERE U.USER_ID=? AND R.ID=U.ROLE_ID",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));
         goto err;
     }    
     if(sqlite3_bind_int(stmt,1,id) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         goto err;
     }
@@ -186,11 +187,11 @@ user * get_user(const char* username, size_t username_length) {
     sqlite3_finalize(stmt);
     if(u->roles_count > 0) {
         if(sqlite3_prepare_v2(db,"SELECT R.ROLE_NAME FROM ROLES R,USER_ROLES U WHERE U.USER_ID=? AND R.ID=U.ROLE_ID",-1,&stmt,0) != SQLITE_OK) {
-            fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));
             goto err;
         }    
         if(sqlite3_bind_int(stmt,1,id) != SQLITE_OK) {
-            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
             sqlite3_finalize(stmt);
             goto err;
         }
@@ -213,16 +214,16 @@ void add_minutes_to_host_limit(const char* host, int minutes) {
     sqlite3_stmt *stmt;
     
     if(sqlite3_prepare_v2(db,"INSERT INTO HOST_ALLOWANCE_EXT (NAME,DAY,MINUTES) VALUES(?,date('now','localtime'),?)",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));
         return;
     }
     if(sqlite3_bind_text(stmt,1,host,-1,NULL) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return;
     }
     if(sqlite3_bind_int(stmt,2,minutes) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return;
     }    
@@ -234,11 +235,11 @@ static int get_host_today_limit_ext(const char* host) {
     sqlite3_stmt *stmt;
     
     if(sqlite3_prepare_v2(db,"SELECT MINUTES FROM HOST_ALLOWANCE_EXT WHERE NAME=? AND DAY=date('now','localtime')",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));
         return 0;
     }
     if(sqlite3_bind_text(stmt,1,host,-1,NULL) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return 0;
     }
@@ -254,11 +255,11 @@ int get_host_today_limit(const char* host) {
     sqlite3_stmt *stmt;
     
     if(sqlite3_prepare_v2(db,"SELECT MINUTES FROM HOST_ALLOWANCE WHERE NAME=? AND DAY=strftime('%w','now','localtime')",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));
         return -1;
     }
     if(sqlite3_bind_text(stmt,1,host,-1,NULL) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return -1;
     }
@@ -280,18 +281,18 @@ int add_minutes_to_host_usage(const char* host, int minutes) {
         sqlite3_stmt *stmt;
         pthread_mutex_lock(&host_usage_mtx);
         if(sqlite3_prepare_v2(db,"INSERT INTO HOST_USAGE (NAME,MINUTES,DAY) VALUES(?,?,date('now','localtime'))",-1,&stmt,0) != SQLITE_OK) {
-            fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));
             pthread_mutex_unlock(&host_usage_mtx);
             return -1;
         }
         if(sqlite3_bind_text(stmt,1,host,-1,NULL) != SQLITE_OK) {
-            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
             sqlite3_finalize(stmt);
             pthread_mutex_unlock(&host_usage_mtx);
             return -1;
         }
         if(sqlite3_bind_int(stmt,2,minutes) != SQLITE_OK) {
-            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
             sqlite3_finalize(stmt);
             pthread_mutex_unlock(&host_usage_mtx);
             return -1;
@@ -304,18 +305,18 @@ int add_minutes_to_host_usage(const char* host, int minutes) {
         sqlite3_stmt *stmt;
         pthread_mutex_lock(&host_usage_mtx);
         if(sqlite3_prepare_v2(db,"UPDATE HOST_USAGE SET MINUTES=? WHERE NAME=? AND DAY=date('now','localtime')",-1,&stmt,0) != SQLITE_OK) {
-            fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));
             pthread_mutex_unlock(&host_usage_mtx);
             return -1;
         }
         if(sqlite3_bind_int(stmt,1,current_minutes+minutes) != SQLITE_OK) {
-            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
             sqlite3_finalize(stmt);
             pthread_mutex_unlock(&host_usage_mtx);
             return -1;
         }
         if(sqlite3_bind_text(stmt,2,host,-1,NULL) != SQLITE_OK) {
-            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
             sqlite3_finalize(stmt);
             pthread_mutex_unlock(&host_usage_mtx);
             return -1;
@@ -331,12 +332,12 @@ names* get_hosts_with_status(host_status status) {
     sqlite3_stmt *stmt;
     pthread_mutex_lock(&host_status_mtx);
     if(sqlite3_prepare_v2(db,"SELECT DISTINCT NAME FROM HOST_STATUS WHERE STATUS=?",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
         pthread_mutex_unlock(&host_status_mtx);
         return NULL;
     }
     if(sqlite3_bind_int(stmt,1,status) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         pthread_mutex_unlock(&host_status_mtx);
         return NULL;
@@ -376,24 +377,24 @@ host_usage * get_host_usage(const char* host, const char* since, const char* unt
         "AND DATE(DAY) >= date(?) AND DATE(DAY) <= DATE(?)",-1,&stmt,0);
     }
     if( ret != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));
         pthread_mutex_unlock(&host_usage_mtx);
         return NULL;        
     }
     if(sqlite3_bind_text(stmt,1,host,-1,NULL) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         pthread_mutex_unlock(&host_usage_mtx);
         return NULL;
     }
     if(sqlite3_bind_text(stmt,2,since,-1,NULL) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         pthread_mutex_unlock(&host_usage_mtx);
         return NULL;
     }
     if(until && sqlite3_bind_text(stmt,3,until,-1,NULL) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         pthread_mutex_unlock(&host_usage_mtx);
         return NULL;
@@ -423,12 +424,12 @@ int get_host_today_usage(const char* host) {
     sqlite3_stmt *stmt;
     pthread_mutex_lock(&host_usage_mtx);
     if(sqlite3_prepare_v2(db,"SELECT MINUTES FROM HOST_USAGE WHERE NAME=? AND DAY=date('now','localtime')",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));
         pthread_mutex_unlock(&host_usage_mtx);
         return -1;
     }
     if(sqlite3_bind_text(stmt,1,host,-1,NULL) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         pthread_mutex_unlock(&host_usage_mtx);
         return -1;
@@ -451,18 +452,18 @@ int set_host_status(const char* host,host_status status) {
     if(existing_status == HOST_UNKNOWN) {
         sqlite3_stmt *stmt;
         if(sqlite3_prepare_v2(db,"INSERT INTO HOST_STATUS (STATUS,NAME) VALUES (?,?)",-1,&stmt,0) != SQLITE_OK) {
-            fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+            logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
             pthread_mutex_unlock(&host_status_mtx);
             return 1;
         }
         if(sqlite3_bind_int(stmt,1,status) != SQLITE_OK) {
-            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
             sqlite3_finalize(stmt);
             pthread_mutex_unlock(&host_status_mtx);
             return -1;
         }
         if(sqlite3_bind_text(stmt,2,host,-1,NULL) != SQLITE_OK) {
-            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
             sqlite3_finalize(stmt);
             pthread_mutex_unlock(&host_status_mtx);
             return 1;
@@ -472,18 +473,18 @@ int set_host_status(const char* host,host_status status) {
     } else {
         sqlite3_stmt *stmt;
         if(sqlite3_prepare_v2(db,"UPDATE HOST_STATUS SET STATUS=? WHERE NAME=?",-1,&stmt,0) != SQLITE_OK) {
-            fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+            logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
             pthread_mutex_unlock(&host_status_mtx);
             return 1;
         }
         if(sqlite3_bind_int(stmt,1,status) != SQLITE_OK) {
-            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
             sqlite3_finalize(stmt);
             pthread_mutex_unlock(&host_status_mtx);
             return -1;
         }
         if(sqlite3_bind_text(stmt,2,host,-1,NULL) != SQLITE_OK) {
-            fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+            logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
             sqlite3_finalize(stmt);
             pthread_mutex_unlock(&host_status_mtx);
             return 1;
@@ -498,12 +499,12 @@ host_status get_host_status(const char* host) {
     sqlite3_stmt *stmt;
     pthread_mutex_lock(&host_status_mtx);
     if(sqlite3_prepare_v2(db,"SELECT STATUS FROM HOST_STATUS WHERE NAME=?",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
         pthread_mutex_unlock(&host_status_mtx);
         return HOST_UNKNOWN;
     }
     if(sqlite3_bind_text(stmt,1,host,-1,NULL) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));        
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));        
         sqlite3_finalize(stmt);
         pthread_mutex_unlock(&host_status_mtx);
         return HOST_UNKNOWN;
@@ -516,22 +517,22 @@ host_status get_host_status(const char* host) {
     }
     sqlite3_finalize(stmt);
     pthread_mutex_unlock(&host_status_mtx);
-    fprintf(stderr, "Cannot get host status for %s. It is not found.\n", host);        
+    logm(SL4C_ERROR, "Cannot get host status for %s. It is not found.\n", host);        
     return HOST_UNKNOWN;
 }
 void add_configuration_value(const char* key, const char* value)
 {
     sqlite3_stmt *stmt;
     if(sqlite3_prepare_v2(db,"INSERT INTO CONFIGURATION(KEY,VALUE) VALUES (?,?)",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
         return;
     }
     if(sqlite3_bind_text(stmt,1,key,-1,SQLITE_STATIC) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
     }
     if(sqlite3_bind_text(stmt,2,value,-1,SQLITE_STATIC) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
     }
 
@@ -542,11 +543,11 @@ void add_configuration_value(const char* key, const char* value)
 char* get_configuration_value(const char* key) {
     sqlite3_stmt *stmt;
     if(sqlite3_prepare_v2(db,"SELECT VALUE FROM CONFIGURATION WHERE KEY=?",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
         return NULL;
     }
     if(sqlite3_bind_text(stmt,1,key,-1,SQLITE_STATIC) != SQLITE_OK) {
-        fprintf(stderr, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return NULL;
     }
@@ -563,7 +564,7 @@ char* get_configuration_value(const char* key) {
 names* get_host_names() {
     sqlite3_stmt *stmt;
     if(sqlite3_prepare_v2(db,"SELECT DISTINCT NAME FROM HOST_ALLOWANCE",-1,&stmt,0) != SQLITE_OK) {
-        fprintf(stderr, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
         return NULL;
     }
     names* root = NULL;
@@ -582,7 +583,7 @@ names* get_host_names() {
             name = new_name;
         }
         name->name = get_string(stmt,0);
-        printf("Found host name %s\n",name->name);
+        logm(SL4C_DEBUG, "Found host name %s", name->name);  
     }
     sqlite3_finalize(stmt);
     
