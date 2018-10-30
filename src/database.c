@@ -82,6 +82,27 @@ int get_roles_count() {
     return -1;    
 }
 
+void update_user_password(const char* login, const char* hash) {
+    sqlite3_stmt *stmt;
+    if(sqlite3_prepare_v2(db,"UPDATE USERS SET PASSWORD_HASH=? WHERE LOGIN=?",-1,&stmt,0) != SQLITE_OK) {
+        logm(SL4C_ERROR, "Cannot execute query: %s\n", sqlite3_errmsg(db));  
+        return;
+    }
+    if(sqlite3_bind_text(stmt,1,hash,-1,NULL) != SQLITE_OK) {
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);        
+        return;
+    }
+    if(sqlite3_bind_text(stmt,2,login,-1,NULL) != SQLITE_OK) {
+        logm(SL4C_ERROR, "Cannot bind key: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        return;
+    }
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+}
+
+
 int add_user(const user* u) {
     sqlite3_stmt *stmt;
     if(sqlite3_prepare_v2(db,"INSERT INTO USERS (LOGIN,PASSWORD_HASH,ENABLED) VALUES (?,?,?)",-1,&stmt,0) != SQLITE_OK) {

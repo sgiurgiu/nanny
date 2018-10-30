@@ -21,6 +21,7 @@ host_usage* get_host_usage(const char* host,const char* since,const char* until)
 
 user* get_user(const char* username,size_t username_length);
 int add_user(const user* u);
+void update_user_password(const char* login,const char* hash);        
 int add_roles(const char** roles,int count);
 int get_users_count();
 int get_roles_count();

@@ -8,6 +8,95 @@
 #include <string.h>
 #include <jansson.h>
 #include <sclog4c/sclog4c.h>
+#include <bcrypt.h>
+
+void handle_admin_update_password(struct mg_connection* nc, int ev, void* ev_data) {
+    if(ev != MG_EV_HTTP_REQUEST) {
+        nc->flags |= MG_F_CLOSE_IMMEDIATELY;
+        return;
+    }    
+    if(!ensure_post_request(nc,ev,ev_data)) return;
+    struct http_message *hm = (struct http_message *) ev_data;
+    if(!is_admin(nc,hm) ) {
+        return;
+    }
+    json_error_t json_error;
+    json_auto_t *login_data = json_loadb(hm->body.p,  hm->body.len, 0, &json_error);
+    if(!login_data) {
+        fprintf(stderr, "json error on line %d: %s\n", json_error.line, json_error.text);
+        mg_send_head(nc,400,12,"Content-Type: text/plain");
+        mg_printf(nc,"%s", "Bad Request");
+        nc->flags |= MG_F_SEND_AND_CLOSE; 
+        return;
+    }
+    json_t *json_password = json_object_get(login_data,"password");
+    json_t *json_new_password = json_object_get(login_data,"new_password");
+    json_t *json_new_password_confirm = json_object_get(login_data,"new_password_confirm");
+    
+    if( !json_is_string(json_new_password) || 
+        !json_is_string(json_password) || 
+        !json_is_string(json_new_password_confirm)) {
+        mg_send_head(nc,400,12,"Content-Type: text/plain");
+        mg_printf(nc,"%s", "Bad Request");
+        nc->flags |= MG_F_SEND_AND_CLOSE; 
+        return;        
+    }
+    
+    const char* password = json_string_value(json_password);    
+    size_t password_length = json_string_length(json_password);
+    size_t new_password_length = json_string_length(json_new_password);
+    const char* new_pasword = json_string_value(json_new_password);    
+    size_t new_password_confirm_length = json_string_length(json_new_password_confirm);
+    const char* new_pasword_confirm = json_string_value(json_new_password_confirm);    
+    //new passwords are not same length
+    if(new_password_confirm_length != new_password_length) {
+        mg_send_head(nc,400,12,"Content-Type: text/plain");
+        mg_printf(nc,"%s", "Bad Request");
+        nc->flags |= MG_F_SEND_AND_CLOSE; 
+        return;                
+    }
+    //new passwords are not same
+    if(strncmp(new_pasword,new_pasword_confirm,new_password_length) != 0) {
+        mg_send_head(nc,400,12,"Content-Type: text/plain");
+        mg_printf(nc,"%s", "Bad Request");
+        nc->flags |= MG_F_SEND_AND_CLOSE; 
+        return;                
+    }
+    //new password is the same as old
+    if(password_length==new_password_length && strncmp(new_pasword,password,new_password_length) == 0) {
+        mg_send_head(nc,400,12,"Content-Type: text/plain");
+        mg_printf(nc,"%s", "Bad Request");
+        nc->flags |= MG_F_SEND_AND_CLOSE; 
+        return;                
+    }
+    //this user* cannot be NULL
+    user* tmp_authenticated_user = get_authenticated_user(hm);
+    user* authenticated_user = get_user(tmp_authenticated_user->login,strlen(tmp_authenticated_user->login));
+    free_user(tmp_authenticated_user);
+    
+    int ret = bcrypt_checkpw(password, authenticated_user->password_hash);
+    if(ret == 0) {
+        //we're cool, we're the same user who's authenticated 
+        char salt[BCRYPT_HASHSIZE];
+        char hash[BCRYPT_HASHSIZE];
+    	int ret;
+        ret = bcrypt_gensalt(12, salt);
+        assert(ret == 0);
+        ret = bcrypt_hashpw(new_pasword, salt, hash);
+        assert(ret == 0);
+        update_user_password(authenticated_user->login,hash);        
+        mg_send_head(nc,200,2,"Content-Type: text/plain");
+        mg_printf(nc,"%s", "OK");
+        nc->flags |= MG_F_SEND_AND_CLOSE;
+    } else {
+        //we did not authenticate . we do not know the password.
+        mg_send_head(nc,401,12,"Content-Type: text/plain");
+        mg_printf(nc,"%s", "Unauthorized");
+        nc->flags |= MG_F_SEND_AND_CLOSE;
+    }
+    
+    free_user(authenticated_user);
+}
 
 void handle_admin_host_history(struct mg_connection *nc, int ev, void *ev_data) {
     if(ev != MG_EV_HTTP_REQUEST) {

@@ -2,6 +2,7 @@
     <div id="admin-content">
       <div class="row">
         <div class="col-2">
+          <div class="row">
             <b-card header="<b>Hosts</b>">
               <b-list-group>
                   <b-list-group-item v-for="host in hosts" :key="host.host" href="#" v-bind:class="{'active':(host === currentHost)}"
@@ -10,6 +11,41 @@
                   </b-list-group-item>
               </b-list-group>
             </b-card>
+          </div>
+          <div class="row">
+            <b-button variant="secondary" class="my-2 my-sm-0" type="button" v-on:click="changePassword">Change Admin Password</b-button>        
+          </div>
+          <div class="row">  
+            <b-button variant="secondary" class="my-2 my-sm-0" type="button" v-on:click="logout">Logout</b-button>        
+          </div>  
+            <b-modal ref="changePasswordModal" title="Change Password" 
+                v-on:ok="changePasswordSubmit" ok-title="Change" :ok-disabled="canWeUpdatePassword" v-on:shown="focusPassword">
+                <b-alert variant="error" show="change_password.error != null" dismissible>Cannot change password</b-alert>
+                <b-form @submit="changePasswordSubmit" >
+                  <b-form-group horizontal
+                        label="Existing Password:"
+                        :label-cols="5"
+                        label-for="password" class="pb-2">
+                      <b-form-input type="password" placeholder="Existing Password" id="password" ref="password"
+                              v-model="change_password.password" required autofocus></b-form-input>            
+                    </b-form-group>
+                  <b-form-group horizontal
+                        label="New Password:"
+                        :label-cols="5"
+                        label-for="new_password">
+                    <b-form-input type="password" placeholder="New Password" id="new_password"
+                            v-model="change_password.new_password" required ></b-form-input>
+                  </b-form-group>
+                  <b-form-group horizontal
+                        label="Confirm New Password:"
+                        :label-cols="5"
+                        label-for="new_password_confirm">
+                    <b-form-input type="password" placeholder="Confirm New Password" id="new_password_confirm"
+                            v-model="change_password.new_password_confirm" required ></b-form-input>
+                  </b-form-group>
+                </b-form>
+          </b-modal>
+            
         </div>
         <div class="col-10" v-if="currentHost != null">
             <div class="row">
@@ -88,6 +124,12 @@ export default {
   data() {
       return {
         hosts : [],
+        change_password: {
+          password:'',
+          new_password:'',
+          new_password_confirm:'',
+          error: null
+        },
         add_minutes: 1,
         currentHost:null,
         startDate: moment().subtract(1,'months').startOf('month').toDate(),
@@ -99,7 +141,45 @@ export default {
            xAxes: [{barThickness: 10,categorySpacing: 0,type:'time',distribution: 'series',time: {unit: 'day'}}]}}
       };
   },
+  computed: {
+    canWeUpdatePassword: function() {
+      const can =  this.change_password.password == null || this.change_password.password.length <= 0 || 
+      this.change_password.new_password == null || this.change_password.new_password.length == 0 ||
+      this.change_password.new_password_confirm == null || this.change_password.new_password_confirm.length == 0 ||
+      this.change_password.new_password !== this.change_password.new_password_confirm;
+      console.log('canWeUpdatePassword:'+can);
+      return can;
+    }
+  },
   methods : {
+    focusPassword: function(event) {
+      this.$refs.password.focus();
+    },    
+    logout: function() {
+          this.$ls.set('login_token', null);
+          this.$router.push('/');
+    },
+    changePasswordSubmit: function() {
+      this.change_password.error = null;
+      this.$http.post("/api/admin/update_password",
+          {
+            password:this.change_password.password,
+            new_password:this.change_password.new_password,
+            new_password_confirm:this.change_password.new_password_confirm
+          })
+      .then(result => {          
+          this.$ls.set('login_token', null);          
+          this.$refs.changePasswordModal.hide();
+          this.$router.push('/');
+        },error => {
+          //stuff to tell to user
+          this.change_password.error = "Can't change password";
+          this.$refs.changePasswordModal.show();
+        });
+    },
+    changePassword: function() {
+      this.$refs.changePasswordModal.show();
+    },
     updateHostsList : function() {
       for(var i=0;i<this.hosts.length;i++) {
         if(this.hosts[i].host === this.currentHost.host) {

@@ -54,7 +54,7 @@ set(BCRYPT_SRC ../external/libbcrypt/bcrypt.c
                 )
 
 set_source_files_properties(mongoose.c PROPERTIES COMPILE_FLAGS -Wno-format COMPILE_FLAGS -Wno-format-pedantic)
-set_source_files_properties(sqlite3.c PROPERTIES COMPILE_FLAGS -Wno-implicit-fallthrough COMPILE_FLAGS -Wno-unused-parameter)
+set_source_files_properties(sqlite3.c PROPERTIES COMPILE_FLAGS -Wno-implicit-fallthrough)
 
 if(PFVAR_INCLUDE_DIR MATCHES PFVAR_INCLUDE_DIR-NOTFOUND)
     list(APPEND NANNY_SRC pf_mock.c)

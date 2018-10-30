@@ -8,6 +8,7 @@
 
 bool is_admin(struct mg_connection* nc, struct http_message *hm);
 bool is_authenticated(struct mg_connection* nc, struct http_message *hm);
+user* get_authenticated_user (struct http_message *hm);
 
 #endif
 
