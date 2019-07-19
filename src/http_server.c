@@ -113,7 +113,7 @@ static void block_everyone(struct mg_mgr *mgr) {
  }
  
 int start_http_server(const http_server_options*  const options) {
-    
+        
     s_http_server_opts.enable_directory_listing = "no";
     s_http_server_opts.document_root = options->server_root;
     cs_stat_t st;

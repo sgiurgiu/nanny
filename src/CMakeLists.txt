@@ -53,8 +53,9 @@ set(BCRYPT_SRC ../external/libbcrypt/bcrypt.c
                 ../external/libbcrypt/crypt_blowfish/x86.S
                 )
 
-set_source_files_properties(mongoose.c PROPERTIES COMPILE_FLAGS -Wno-format COMPILE_FLAGS -Wno-format-pedantic)
-set_source_files_properties(sqlite3.c PROPERTIES COMPILE_FLAGS -Wno-implicit-fallthrough)
+set_source_files_properties(mongoose.c PROPERTIES COMPILE_FLAGS "-Wformat=0 -Wno-format-pedantic -Wno-cast-function-type")
+set_source_files_properties(sqlite3.c PROPERTIES COMPILE_FLAGS "-Wimplicit-fallthrough=0 -Wno-format-pedantic -Wno-cast-function-type")
+set_source_files_properties(../external/jwt/libjwt/jwt-openssl.c PROPERTIES COMPILE_FLAGS "-Wno-sign-compare")
 
 if(PFVAR_INCLUDE_DIR MATCHES PFVAR_INCLUDE_DIR-NOTFOUND)
     list(APPEND NANNY_SRC pf_mock.c)
