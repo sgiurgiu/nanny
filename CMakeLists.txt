@@ -9,7 +9,7 @@ option(BUILD_TESTS "Build the tests" ON)
 
 list (APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-add_definitions( -Wall -pedantic -Wextra -DMG_ENABLE_HTTP_WEBSOCKET=0 -DMG_ENABLE_MQTT=0)
+add_definitions( -Wall -pedantic -Wextra -DMG_ENABLE_HTTP_WEBSOCKET=0 -DMG_ENABLE_MQTT=0 -Wformat -Wsign-compare)
 
 add_subdirectory(src)
 
